@@ -1,5 +1,8 @@
 from flask import Flask, render_template, request
 import sqlite3
+import cv2
+import os
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -20,6 +23,7 @@ def register_page():
 
 # ---------------- REGISTER CANDIDATE ----------------
 
+@app.route("/register", methods=["POST"])
 @app.route("/register", methods=["POST"])
 def register():
 
@@ -53,16 +57,57 @@ def register():
         conn.close()
         return "Email already registered!"
 
+    # ---------------- PHOTO CAPTURE ----------------
+
+    camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+    if not camera.isOpened():
+        conn.close()
+        return "Could not open webcam."
+
+    print("Press C to Capture Photo")
+
+    photo_path = ""
+
+    while True:
+
+        ret, frame = camera.read()
+
+        if not ret:
+            break
+
+        cv2.imshow("Capture Photo", frame)
+
+        key = cv2.waitKey(1)
+
+        if key == ord('c'):
+
+            if not os.path.exists("photos"):
+                os.makedirs("photos")
+
+            photo_path = f"photos/{email}.jpg"
+
+            cv2.imwrite(photo_path, frame)
+
+            break
+
+    camera.release()
+    cv2.destroyAllWindows()
+    if photo_path == "":
+        conn.close()
+        return "Photo was not captured."
+
+    # ---------------- SAVE DATA ----------------
+
     cursor.execute("""
-        INSERT INTO Candidate(name,email,password)
-        VALUES(?,?,?)
-    """, (name, email, password))
+        INSERT INTO Candidate(name,email,password,photo_path)
+        VALUES(?,?,?,?)
+    """, (name, email, password, photo_path))
 
     conn.commit()
     conn.close()
 
     return "Candidate Registered Successfully!"
-
 
 # ---------------- LOGIN PAGE ----------------
 
@@ -101,6 +146,76 @@ def login():
         return render_template("dashboard.html", name=user[1])
     else:
         return "Invalid Email or Password!"
+    
+
+@app.route("/start_exam", methods=["POST"])
+def start_exam():
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO Session(candidate_id,start_time,status)
+        VALUES(?,?,?)
+    """, ("C001", datetime.now(), "Started"))
+
+    conn.commit()
+    conn.close()
+
+    return "Exam Started Successfully!"
+
+@app.route("/pause_exam", methods=["POST"])
+def pause_exam():
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE Session
+        SET status=?
+        WHERE session_id=(SELECT MAX(session_id) FROM Session)
+    """, ("Paused",))
+
+    conn.commit()
+    conn.close()
+
+    return "Exam Paused Successfully!"
+
+@app.route("/resume_exam", methods=["POST"])
+def resume_exam():
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE Session
+        SET status=?
+        WHERE session_id=(SELECT MAX(session_id) FROM Session)
+    """, ("Resumed",))
+
+    conn.commit()
+    conn.close()
+
+    return "Exam Resumed Successfully!"
+
+@app.route("/end_exam", methods=["POST"])
+def end_exam():
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE Session
+        SET
+            end_time=?,
+            status=?
+        WHERE session_id=(SELECT MAX(session_id) FROM Session)
+    """, (datetime.now(), "Completed"))
+
+    conn.commit()
+    conn.close()
+
+    return "Exam Ended Successfully!"
 
 # ---------------- DASHBOARD ----------------
 
@@ -112,6 +227,4 @@ def dashboard():
 # ---------------- RUN APP ----------------
 
 if __name__ == "__main__":
-    app.run(debug=True)
-    #lizan amrin faizal
-    #lizanamrin@gmail.com
+    app.run(debug=False)
