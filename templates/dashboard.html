@@ -5,11 +5,33 @@
 </head>
 <body>
 
-<h1>Candidate Dashboard</h1>
+<h2>Dashboard</h2>
 
-<h2>Welcome {{ name }}</h2>
+<h3>Welcome {{ name }}</h3>
 
-<p>Login Successful!</p>
+<br>
+
+<form action="/start_exam" method="POST">
+    <button type="submit">Start Exam</button>
+</form>
+
+<br>
+
+<form action="/pause_exam" method="POST">
+    <button type="submit">Pause Exam</button>
+</form>
+
+<br>
+
+<form action="/resume_exam" method="POST">
+    <button type="submit">Resume Exam</button>
+</form>
+
+<br>
+
+<form action="/end_exam" method="POST">
+    <button type="submit">End Exam</button>
+</form>
 
 </body>
 </html>
