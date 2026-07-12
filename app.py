@@ -1,10 +1,15 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session, redirect, url_for
 import sqlite3
 import cv2
 import os
 from datetime import datetime
+import random
+import string
+import base64
+
 
 app = Flask(__name__)
+app.secret_key = "exam-monitoring-secret-key"
 
 
 # ---------------- HOME PAGE ----------------
@@ -14,25 +19,51 @@ def home():
     return render_template("index.html")
 
 
+# ---------------- EXAM ENTRY PAGE ----------------
+
+@app.route("/exam-entry")
+def exam_entry():
+    return render_template("exam_entry.html")
+
+
 # ---------------- REGISTER PAGE ----------------
 
 @app.route("/register")
 def register_page():
-    return render_template("register.html")
+
+    captcha = "".join(
+        random.choices(
+            string.ascii_uppercase + string.digits,
+            k=6
+        )
+    )
+
+    session["captcha"] = captcha
+
+    return render_template(
+        "register.html",
+        captcha=captcha
+    )
 
 
 # ---------------- REGISTER CANDIDATE ----------------
 
 @app.route("/register", methods=["POST"])
-@app.route("/register", methods=["POST"])
 def register():
 
-    name = request.form["name"].strip()
+    first_name = request.form["first_name"].strip()
+    middle_name = request.form["middle_name"].strip()
+    last_name = request.form["last_name"].strip()
     email = request.form["email"].strip()
-    password = request.form["password"].strip()
+    password = request.form["password"]
+    confirm_password = request.form["confirm_password"]
+    entered_captcha = request.form["captcha"].strip().upper()
 
-    if name == "":
-        return "Name cannot be empty!"
+    if first_name == "":
+        return "First Name cannot be empty!"
+
+    if last_name == "":
+        return "Last Name cannot be empty!"
 
     if email == "":
         return "Email cannot be empty!"
@@ -43,71 +74,143 @@ def register():
     if password == "":
         return "Password cannot be empty!"
 
+    if password != confirm_password:
+        return "Passwords do not match!"
+
+    stored_captcha = session.get("captcha")
+
+    if entered_captcha != stored_captcha:
+        return "Invalid CAPTCHA!"
+
     conn = sqlite3.connect("database/exam.db")
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT * FROM Candidate WHERE email=?",
+        "SELECT candidate_id FROM Candidate WHERE email=?",
         (email,)
     )
 
     existing_user = cursor.fetchone()
 
-    if existing_user:
-        conn.close()
-        return "Email already registered!"
-
-    # ---------------- PHOTO CAPTURE ----------------
-
-    camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
-    if not camera.isOpened():
-        conn.close()
-        return "Could not open webcam."
-
-    print("Press C to Capture Photo")
-
-    photo_path = ""
-
-    while True:
-
-        ret, frame = camera.read()
-
-        if not ret:
-            break
-
-        cv2.imshow("Capture Photo", frame)
-
-        key = cv2.waitKey(1)
-
-        if key == ord('c'):
-
-            if not os.path.exists("photos"):
-                os.makedirs("photos")
-
-            photo_path = f"photos/{email}.jpg"
-
-            cv2.imwrite(photo_path, frame)
-
-            break
-
-    camera.release()
-    cv2.destroyAllWindows()
-    if photo_path == "":
-        conn.close()
-        return "Photo was not captured."
-
-    # ---------------- SAVE DATA ----------------
-
-    cursor.execute("""
-        INSERT INTO Candidate(name,email,password,photo_path)
-        VALUES(?,?,?,?)
-    """, (name, email, password, photo_path))
-
-    conn.commit()
     conn.close()
 
-    return "Candidate Registered Successfully!"
+    if existing_user:
+        return "Email already registered!"
+
+    session["pending_candidate"] = {
+        "first_name": first_name,
+        "middle_name": middle_name,
+        "last_name": last_name,
+        "email": email,
+        "password": password
+    }
+
+    session.pop("captcha", None)
+
+    return redirect(url_for("capture_photo"))
+
+
+@app.route("/capture-photo")
+def capture_photo():
+
+    if "pending_candidate" not in session:
+        return redirect(url_for("register_page"))
+
+    return render_template("capture_photo.html")
+
+@app.route("/save-candidate-photo", methods=["POST"])
+def save_candidate_photo():
+
+    if "pending_candidate" not in session:
+        return redirect(url_for("register_page"))
+
+    photo_data = request.form.get("photo_data")
+
+    if not photo_data:
+        return "Photo was not captured."
+
+    candidate = session["pending_candidate"]
+
+    try:
+
+        image_data = photo_data.split(",", 1)[1]
+
+        image_bytes = base64.b64decode(image_data)
+
+    except (IndexError, ValueError):
+        return "Invalid photo data."
+
+    if not os.path.exists("photos"):
+        os.makedirs("photos")
+
+    safe_email = (
+        candidate["email"]
+        .replace("@", "_")
+        .replace(".", "_")
+    )
+
+    photo_path = f"photos/{safe_email}.jpg"
+
+    with open(photo_path, "wb") as photo_file:
+        photo_file.write(image_bytes)
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    try:
+
+        cursor.execute("""
+            INSERT INTO Candidate
+            (
+                first_name,
+                middle_name,
+                last_name,
+                email,
+                password,
+                photo_path
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            candidate["first_name"],
+            candidate["middle_name"],
+            candidate["last_name"],
+            candidate["email"],
+            candidate["password"],
+            photo_path
+        ))
+
+        candidate_id = cursor.lastrowid
+
+        cursor.execute("""
+            INSERT INTO EventLog
+            (
+                candidate_id,
+                event_type,
+                remarks
+            )
+            VALUES (?, ?, ?)
+        """, (
+            candidate_id,
+            "Candidate Registered",
+            "Candidate account created and identity photo captured"
+        ))
+
+        conn.commit()
+
+    except sqlite3.IntegrityError:
+
+        conn.rollback()
+        conn.close()
+
+        return "Email already registered!"
+
+    conn.close()
+
+    session.pop("pending_candidate", None)
+
+    return redirect(url_for("login_page"))
+
+
 
 # ---------------- LOGIN PAGE ----------------
 
@@ -146,7 +249,9 @@ def login():
         return render_template("dashboard.html", name=user[1])
     else:
         return "Invalid Email or Password!"
-    
+
+
+# ---------------- START EXAM ----------------
 
 @app.route("/start_exam", methods=["POST"])
 def start_exam():
@@ -163,6 +268,9 @@ def start_exam():
     conn.close()
 
     return "Exam Started Successfully!"
+
+
+# ---------------- PAUSE EXAM ----------------
 
 @app.route("/pause_exam", methods=["POST"])
 def pause_exam():
@@ -181,6 +289,9 @@ def pause_exam():
 
     return "Exam Paused Successfully!"
 
+
+# ---------------- RESUME EXAM ----------------
+
 @app.route("/resume_exam", methods=["POST"])
 def resume_exam():
 
@@ -197,6 +308,9 @@ def resume_exam():
     conn.close()
 
     return "Exam Resumed Successfully!"
+
+
+# ---------------- END EXAM ----------------
 
 @app.route("/end_exam", methods=["POST"])
 def end_exam():
@@ -216,6 +330,7 @@ def end_exam():
     conn.close()
 
     return "Exam Ended Successfully!"
+
 
 # ---------------- DASHBOARD ----------------
 

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Take Test</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <main class="entry-page">
+
+        <div class="entry-box">
+
+            <p class="project-label">EXAM PORTAL</p>
+
+            <h1>Ready to Take Your Test?</h1>
+
+            <p class="entry-description">
+                Login to continue your examination or register as a new candidate.
+            </p>
+
+            <div class="entry-buttons">
+
+                <a href="{{ url_for('login_page') }}" class="test-btn">
+                    Login
+                </a>
+
+                <a href="{{ url_for('register_page') }}" class="register-btn">
+                    Register
+                </a>
+
+            </div>
+
+            <a href="{{ url_for('home') }}" class="back-link">
+                ← Back to Home
+            </a>
+
+        </div>
+
+    </main>
+
+</body>
+
+</html>

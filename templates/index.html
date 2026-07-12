@@ -1,21 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Online Exam Monitoring Platform</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Online Exam Monitoring & Integrity Analysis</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
-<h1>Online Exam Monitoring Platform</h1>
+    <main class="landing">
 
-<p>Welcome to the Online Examination Portal</p>
+        <section class="content">
 
-<a href="/register">
-    <button>Register</button>
-</a>
+            <p class="project-label">ONLINE EXAM SYSTEM</p>
 
-<a href="/login">
-    <button>Login</button>
-</a>
+            <h1>
+                Online Exam Monitoring
+                <span>& Integrity Analysis</span>
+            </h1>
+
+            <p class="description">
+                A Python-based project designed to monitor online examinations
+                and support a fair and integrity-focused examination environment.
+            </p>
+
+            <div class="tech-stack">
+                <p>TECH STACK</p>
+
+                <div class="tech-list">
+                    <span>Python</span>
+                    <span>Flask</span>
+                    <span>SQLite</span>
+                    <span>OpenCV</span>
+                    <span>HTML</span>
+                    <span>CSS</span>
+                    <span>JavaScript</span>
+                </div>
+            </div>
+
+            <a href="{{ url_for('exam_entry') }}" class="test-btn">
+                Take Test
+            </a>
+
+        </section>
+
+        <footer>
+            <p>Made by</p>
+            <h3>Priyanshu Gautam & Team</h3>
+        </footer>
+
+    </main>
 
 </body>
+
 </html>
