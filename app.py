@@ -214,9 +214,24 @@ def save_candidate_photo():
 
 # ---------------- LOGIN PAGE ----------------
 
+# ---------------- LOGIN PAGE ----------------
+
 @app.route("/login")
 def login_page():
-    return render_template("login.html")
+
+    captcha = "".join(
+        random.choices(
+            string.ascii_uppercase + string.digits,
+            k=6
+        )
+    )
+
+    session["login_captcha"] = captcha
+
+    return render_template(
+        "login.html",
+        captcha=captcha
+    )
 
 
 # ---------------- LOGIN ----------------
@@ -225,7 +240,8 @@ def login_page():
 def login():
 
     email = request.form["email"].strip()
-    password = request.form["password"].strip()
+    password = request.form["password"]
+    entered_captcha = request.form["captcha"].strip().upper()
 
     if email == "":
         return "Enter Email"
@@ -233,23 +249,67 @@ def login():
     if password == "":
         return "Enter Password"
 
+    stored_captcha = session.get("login_captcha")
+
+    if entered_captcha != stored_captcha:
+        return "Invalid CAPTCHA!"
+
     conn = sqlite3.connect("database/exam.db")
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT * FROM Candidate
+        SELECT
+            candidate_id,
+            first_name,
+            middle_name,
+            last_name,
+            email
+        FROM Candidate
         WHERE email=? AND password=?
-    """, (email, password))
+    """, (
+        email,
+        password
+    ))
 
     user = cursor.fetchone()
 
     conn.close()
 
-    if user:
-        return render_template("dashboard.html", name=user[1])
-    else:
+    if user is None:
         return "Invalid Email or Password!"
 
+    candidate_id = user[0]
+    first_name = user[1]
+    middle_name = user[2]
+    last_name = user[3]
+
+    if middle_name:
+        full_name = f"{first_name} {middle_name} {last_name}"
+    else:
+        full_name = f"{first_name} {last_name}"
+
+    session["candidate_id"] = candidate_id
+    session["candidate_name"] = full_name
+
+    session.pop("login_captcha", None)
+
+    return redirect(url_for("welcome"))
+
+
+# ---------------- WELCOME PAGE ----------------
+
+@app.route("/welcome")
+def welcome():
+
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    candidate_name = session.get("candidate_name")
+
+    return render_template(
+        "welcome.html",
+        name=candidate_name
+    )
 
 # ---------------- START EXAM ----------------
 
