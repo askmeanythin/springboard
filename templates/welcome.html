@@ -47,13 +47,17 @@
 
             </div>
 
-            <button
-                type="button"
-                class="start-test-btn">
+            <form action="{{ url_for('exam') }}" method="GET">
 
-                Start Test
+                <button
+                    type="submit"
+                    class="start-test-btn">
 
-            </button>
+                    Start Test
+
+                </button>
+
+            </form>
 
             <p class="welcome-note">
                 Please ensure your camera is available before starting the examination.

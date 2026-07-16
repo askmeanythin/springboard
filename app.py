@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, Response
 import sqlite3
 import cv2
 import os
@@ -310,6 +310,7 @@ def login():
 
     session["candidate_id"] = candidate_id
     session["candidate_name"] = full_name
+    session["candidate_email"] = user[4]
 
     write_user_log(
         email,
@@ -424,7 +425,52 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+
+# ---------------- Exam ----------------
+@app.route("/exam")
+def exam():
+
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    return render_template("exam.html")
+
+
+
+def generate_frames():
+
+    camera = cv2.VideoCapture(0)
+
+    while True:
+
+        success, frame = camera.read()
+
+        if not success:
+            break
+
+        _, buffer = cv2.imencode(".jpg", frame)
+
+        frame = buffer.tobytes()
+
+        yield (
+            b'--frame\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' +
+            frame +
+            b'\r\n'
+        )
+
+@app.route("/video_feed")
+def video_feed():
+
+    return Response(
+        generate_frames(),
+        mimetype="multipart/x-mixed-replace; boundary=frame"
+    )
+
+
 # ---------------- RUN APP ----------------
 
 if __name__ == "__main__":
     app.run(debug=False)
+
+
