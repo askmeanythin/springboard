@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Face Capture Process</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="camera-body">
+
+    <section class="face-capture-page" id="capture-section">
+
+        <div class="face-capture-container">
+
+            <div class="capture-header">
+
+                <p class="project-label">
+                    IDENTITY VERIFICATION
+                </p>
+
+                <h1>Face Capture Process</h1>
+
+                <p class="capture-intro">
+                    Your captured image and face identity will be used during
+                    the examination for monitoring and integrity analysis.
+                </p>
+
+            </div>
+
+
+            <div class="capture-guidelines">
+
+                <h3>Capture Guidelines</h3>
+
+                <p>
+                    Please sit in front of a light background and ensure that
+                    your face is clearly visible with good lighting.
+                </p>
+
+            </div>
+
+
+            <div class="capture-workspace">
+
+                <div class="camera-preview">
+
+                    <video
+                        id="camera"
+                        autoplay
+                        playsinline>
+                    </video>
+
+                    <canvas id="canvas"></canvas>
+
+                    <img
+                        id="photo-preview"
+                        alt="Captured candidate photo"
+                    >
+
+                    <div class="camera-status" id="camera-status">
+                        Requesting camera access...
+                    </div>
+
+                </div>
+
+
+                <div class="capture-controls">
+
+                    <div id="initial-controls">
+
+                        <h3>Ready to Capture?</h3>
+
+                        <p>
+                            Look directly at the camera and keep your face
+                            clearly visible.
+                        </p>
+
+                        <button
+                            type="button"
+                            id="capture-btn"
+                            class="capture-main-btn"
+                            onclick="capturePhoto()"
+                            disabled>
+
+                            Capture Photo
+
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="confirmation-controls"
+                        class="confirmation-controls">
+
+                        <h3>Photo Captured</h3>
+
+                        <p>
+                            Check your photo before continuing.
+                        </p>
+
+                        <button
+                            type="button"
+                            class="capture-main-btn"
+                            onclick="confirmPhoto()">
+
+                            Confirm & Continue
+
+                        </button>
+
+                        <button
+                            type="button"
+                            class="retake-btn"
+                            onclick="retakePhoto()">
+
+                            Retake Photo
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="slot-section" id="slot-section">
+
+        <div class="slot-container">
+
+            <p class="project-label">
+                EXAMINATION
+            </p>
+
+            <h1>Select Your Exam Slot</h1>
+
+            <p class="slot-description">
+                Choose an available examination slot to continue.
+            </p>
+
+            <div class="slot-grid">
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '12:00 PM')">
+                    <span>12:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '1:00 PM')">
+                    <span>1:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '2:00 PM')">
+                    <span>2:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '3:00 PM')">
+                    <span>3:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '4:00 PM')">
+                    <span>4:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '5:00 PM')">
+                    <span>5:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '6:00 PM')">
+                    <span>6:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '7:00 PM')">
+                    <span>7:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '8:00 PM')">
+                    <span>8:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+                <button type="button" class="slot-card" onclick="selectSlot(this, '9:00 PM')">
+                    <span>9:00 PM</span>
+                    <small>Available</small>
+                </button>
+
+            </div>
+
+            <div class="slot-confirmation">
+
+                <p id="selected-slot-text">
+                    Select an examination slot to continue.
+                </p>
+
+                <button
+                    type="button"
+                    id="complete-registration-btn"
+                    class="capture-main-btn"
+                    onclick="completeRegistration()"
+                    disabled>
+
+                    Complete Registration
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <form
+        action="{{ url_for('save_candidate_photo') }}"
+        method="POST"
+        id="photo-form">
+
+        <input
+            type="hidden"
+            id="photo_data"
+            name="photo_data"
+        >
+
+    </form>
+
+
+    <script>
+
+        const camera = document.getElementById("camera");
+        const canvas = document.getElementById("canvas");
+        const photoPreview = document.getElementById("photo-preview");
+
+        const captureButton = document.getElementById("capture-btn");
+
+        const initialControls =
+            document.getElementById("initial-controls");
+
+        const confirmationControls =
+            document.getElementById("confirmation-controls");
+
+        const photoData =
+            document.getElementById("photo_data");
+
+        const cameraStatus =
+            document.getElementById("camera-status");
+
+        let cameraStream = null;
+
+        let photoConfirmed = false;
+
+
+        document.body.classList.add("scroll-locked");
+
+
+        async function startCamera() {
+
+            try {
+
+                cameraStream =
+                    await navigator.mediaDevices.getUserMedia({
+
+                        video: {
+                            facingMode: "user",
+                            width: {
+                                ideal: 1280
+                            },
+                            height: {
+                                ideal: 720
+                            }
+                        },
+
+                        audio: false
+
+                    });
+
+
+                camera.srcObject = cameraStream;
+
+                cameraStatus.textContent = "Camera Ready";
+
+                captureButton.disabled = false;
+
+            }
+
+            catch (error) {
+
+                cameraStatus.textContent =
+                    "Camera permission denied or camera unavailable.";
+
+                console.error(error);
+
+            }
+
+        }
+
+
+        function capturePhoto() {
+
+            canvas.width = camera.videoWidth;
+
+            canvas.height = camera.videoHeight;
+
+
+            const context = canvas.getContext("2d");
+
+
+            context.drawImage(
+                camera,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+
+            const imageData =
+                canvas.toDataURL("image/jpeg", 0.9);
+
+
+            photoData.value = imageData;
+
+            photoPreview.src = imageData;
+
+
+            camera.style.display = "none";
+
+            photoPreview.style.display = "block";
+
+
+            initialControls.style.display = "none";
+
+            confirmationControls.style.display = "block";
+
+
+            cameraStatus.textContent = "Photo Captured";
+
+        }
+
+
+        function retakePhoto() {
+
+            photoConfirmed = false;
+
+            photoData.value = "";
+
+            photoPreview.src = "";
+
+
+            photoPreview.style.display = "none";
+
+            camera.style.display = "block";
+
+
+            confirmationControls.style.display = "none";
+
+            initialControls.style.display = "block";
+
+
+            cameraStatus.textContent = "Camera Ready";
+
+        }
+
+
+        function confirmPhoto() {
+
+            if (!photoData.value) {
+
+                return;
+
+            }
+
+
+            photoConfirmed = true;
+
+
+            document.body.classList.remove("scroll-locked");
+
+
+            document
+                .getElementById("slot-section")
+                .scrollIntoView({
+
+                    behavior: "smooth"
+
+                });
+
+        }
+
+
+        window.addEventListener("beforeunload", function () {
+
+            if (cameraStream) {
+
+                cameraStream
+                    .getTracks()
+                    .forEach(track => track.stop());
+
+            }
+
+        });
+        let selectedSlot = null;
+
+
+        function selectSlot(button, slot) {
+
+            const slotCards =
+                document.querySelectorAll(".slot-card");
+
+
+            slotCards.forEach(function (card) {
+
+                card.classList.remove("selected");
+
+            });
+
+
+            button.classList.add("selected");
+
+
+            selectedSlot = slot;
+
+
+            document.getElementById(
+                "selected-slot-text"
+            ).textContent = "Selected Slot: " + slot;
+
+
+            document.getElementById(
+                "complete-registration-btn"
+            ).disabled = false;
+
+        }
+
+
+        function completeRegistration() {
+
+            if (!photoConfirmed || !selectedSlot) {
+
+                return;
+
+            }
+
+
+            document
+                .getElementById("photo-form")
+                .submit();
+
+        }
+
+        startCamera();
+
+    </script>
+
+</body>
+
+</html>

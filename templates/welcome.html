@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Welcome Back</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <main class="welcome-page">
+
+        <div class="welcome-container">
+
+            <p class="project-label">
+                EXAMINATION PORTAL
+            </p>
+
+            <h1>
+                Welcome Back,
+                <span>{{ name }}</span>
+            </h1>
+
+            <p class="welcome-description">
+                Your identity has been verified successfully.
+                You are now ready to continue to the examination process.
+            </p>
+
+            <div class="welcome-info">
+
+                <div class="welcome-info-icon">
+                    ✓
+                </div>
+
+                <div>
+                    <h3>Candidate Verified</h3>
+
+                    <p>
+                        Your registered account has been successfully authenticated.
+                    </p>
+                </div>
+
+            </div>
+
+            <button
+                type="button"
+                class="start-test-btn">
+
+                Start Test
+
+            </button>
+
+            <p class="welcome-note">
+                Please ensure your camera is available before starting the examination.
+            </p>
+
+        </div>
+
+    </main>
+
+</body>
+
+</html>
