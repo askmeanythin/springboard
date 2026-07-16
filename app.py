@@ -6,7 +6,22 @@ from datetime import datetime
 import random
 import string
 import base64
+from datetime import datetime
 
+
+LOG_FOLDER = "logs"
+
+os.makedirs(LOG_FOLDER, exist_ok=True)
+
+def write_user_log(email, message):
+    filename = os.path.join(LOG_FOLDER, f"{email}.log")
+
+    with open(filename, "a") as file:
+        file.write("=" * 50 + "\n")
+        file.write(message + "\n")
+        file.write("Date : " + datetime.now().strftime("%d-%m-%Y") + "\n")
+        file.write("Time : " + datetime.now().strftime("%H:%M:%S") + "\n")
+        file.write("=" * 50 + "\n\n")
 
 app = Flask(__name__)
 app.secret_key = "exam-monitoring-secret-key"
@@ -197,6 +212,11 @@ def save_candidate_photo():
 
         conn.commit()
 
+        write_user_log(
+            candidate["email"],
+            "Account Created\nPhoto Captured Successfully\nCandidate Registered Successfully"
+        )
+
     except sqlite3.IntegrityError:
 
         conn.rollback()
@@ -290,6 +310,11 @@ def login():
 
     session["candidate_id"] = candidate_id
     session["candidate_name"] = full_name
+
+    write_user_log(
+        email,
+        "Login Successful"
+    )
 
     session.pop("login_captcha", None)
 
