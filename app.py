@@ -435,7 +435,11 @@ def exam():
 
     return render_template("exam.html")
 
+face_cascade = cv2.CascadeClassifier(
+    "haarcascade_frontalface_default.xml"
+)
 
+face_detected = True
 
 def generate_frames():
 
@@ -448,6 +452,32 @@ def generate_frames():
         if not success:
             break
 
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(80, 80)
+        )
+
+        global face_detected
+
+        if len(faces) > 0:
+            face_detected = True
+        else:
+            face_detected = False
+
+        for (x, y, w, h) in faces:
+
+            cv2.rectangle(
+                frame,
+                (x, y),
+                (x + w, y + h),
+                (0, 255, 0),
+                2
+            )
+        
         _, buffer = cv2.imencode(".jpg", frame)
 
         frame = buffer.tobytes()
@@ -466,6 +496,16 @@ def video_feed():
         generate_frames(),
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
+
+
+
+
+@app.route("/face_status")
+def face_status():
+
+    return {
+        "face_detected": face_detected
+    }
 
 
 # ---------------- RUN APP ----------------
