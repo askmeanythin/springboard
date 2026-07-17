@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, Response
 import sqlite3
 import cv2
 import os
@@ -6,7 +6,22 @@ from datetime import datetime
 import random
 import string
 import base64
+from datetime import datetime
 
+
+LOG_FOLDER = "logs"
+
+os.makedirs(LOG_FOLDER, exist_ok=True)
+
+def write_user_log(email, message):
+    filename = os.path.join(LOG_FOLDER, f"{email}.log")
+
+    with open(filename, "a") as file:
+        file.write("=" * 50 + "\n")
+        file.write(message + "\n")
+        file.write("Date : " + datetime.now().strftime("%d-%m-%Y") + "\n")
+        file.write("Time : " + datetime.now().strftime("%H:%M:%S") + "\n")
+        file.write("=" * 50 + "\n\n")
 
 app = Flask(__name__)
 app.secret_key = "exam-monitoring-secret-key"
@@ -197,6 +212,11 @@ def save_candidate_photo():
 
         conn.commit()
 
+        write_user_log(
+            candidate["email"],
+            "Account Created\nPhoto Captured Successfully\nCandidate Registered Successfully"
+        )
+
     except sqlite3.IntegrityError:
 
         conn.rollback()
@@ -290,6 +310,12 @@ def login():
 
     session["candidate_id"] = candidate_id
     session["candidate_name"] = full_name
+    session["candidate_email"] = user[4]
+
+    write_user_log(
+        email,
+        "Login Successful"
+    )
 
     session.pop("login_captcha", None)
 
@@ -399,7 +425,52 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+
+# ---------------- Exam ----------------
+@app.route("/exam")
+def exam():
+
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    return render_template("exam.html")
+
+
+
+def generate_frames():
+
+    camera = cv2.VideoCapture(0)
+
+    while True:
+
+        success, frame = camera.read()
+
+        if not success:
+            break
+
+        _, buffer = cv2.imencode(".jpg", frame)
+
+        frame = buffer.tobytes()
+
+        yield (
+            b'--frame\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' +
+            frame +
+            b'\r\n'
+        )
+
+@app.route("/video_feed")
+def video_feed():
+
+    return Response(
+        generate_frames(),
+        mimetype="multipart/x-mixed-replace; boundary=frame"
+    )
+
+
 # ---------------- RUN APP ----------------
 
 if __name__ == "__main__":
     app.run(debug=False)
+
+
