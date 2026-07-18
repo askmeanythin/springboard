@@ -23,6 +23,13 @@ def write_user_log(email, message):
         file.write("Time : " + datetime.now().strftime("%H:%M:%S") + "\n")
         file.write("=" * 50 + "\n\n")
 
+def append_exam_log(email, message):
+
+    filename = os.path.join(LOG_FOLDER, f"{email}.log")
+
+    with open(filename, "a") as file:
+        file.write(f"[{datetime.now().strftime('%H:%M:%S')}] {message}\n")
+
 app = Flask(__name__)
 app.secret_key = "exam-monitoring-secret-key"
 
@@ -432,6 +439,19 @@ def exam():
 
     if "candidate_id" not in session:
         return redirect(url_for("login_page"))
+    
+
+    write_user_log(
+        session["candidate_email"],
+        f"""Exam Started
+
+    Initial Status
+    Faces Detected : {face_count}
+    Missing Time : 0 sec"""
+    )
+
+    global current_candidate_email
+    current_candidate_email = session["candidate_email"]
 
     return render_template("exam.html")
 
@@ -443,6 +463,11 @@ face_detected = True
 face_count = 0
 face_missing_start = None
 missing_seconds = 0
+
+last_face_count = 0
+last_missing_state = False
+
+current_candidate_email = None
 
 def generate_frames():
 
@@ -469,23 +494,64 @@ def generate_frames():
         )
 
         global face_count
+        global face_missing_start
+        global missing_seconds
+
+        global last_face_count
+        global last_missing_state
 
         face_count = len(faces)
 
-        global face_missing_start
-        global missing_seconds
+        email = current_candidate_email
+
+        if email:
+
+            if face_count >= 2 and last_face_count < 2:
+                append_exam_log(
+                    email,
+                    f"Multiple Faces Detected ({face_count} Faces)"
+                )
+
+            elif face_count == 1 and last_face_count >= 2:
+                append_exam_log(
+                    email,
+                    "Face Count Normal (1 Face)"
+                )
+
+        last_face_count = face_count
+
+
 
         if face_count == 0:
 
             if face_missing_start is None:
+
                 face_missing_start = time.time()
 
-            missing_seconds = int(time.time() - face_missing_start)
+                if email and not last_missing_state:
+                    append_exam_log(
+                        email,
+                        "Candidate Missing"
+                    )
+
+                last_missing_state = True
+
+            missing_seconds = int(
+                time.time() - face_missing_start
+            )
 
         else:
 
+            if last_missing_state and email:
+
+                append_exam_log(
+                    email,
+                    f"Candidate Returned (Missing {missing_seconds} sec)"
+                )
+
             face_missing_start = None
             missing_seconds = 0
+            last_missing_state = False
 
         global face_detected
 
