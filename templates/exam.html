@@ -93,6 +93,17 @@
 
         </div>
 
+
+    </div>
+
+
+    <div id="warningMessage"
+        style="display:none;
+                color:red;
+                font-size:20px;
+                font-weight:bold;
+                margin-top:15px;">
+        Warning: Face not detected!
     </div>
 
     <div class="info">
@@ -107,7 +118,7 @@
             <b>Current Time :</b>
             <span id="currentTime"></span>
         </p>
-
+        
         <hr><br>
 
         <h3>Guidelines</h3>
@@ -150,6 +161,39 @@ function updateTime(){
 updateTime();
 
 setInterval(updateTime,1000);
+
+</script>
+
+<script>
+
+let missingSeconds = 0;
+
+setInterval(async function(){
+
+    const response = await fetch("/monitor");
+
+    const data = await response.json();
+
+    document.getElementById("faceCount").innerHTML = data.face_count;
+
+    if(data.face_count == 0){
+
+        document.getElementById("timerRow").style.display = "block";
+
+        missingSeconds++;
+
+        document.getElementById("missingTimer").innerHTML = missingSeconds;
+
+    }
+    else{
+
+        missingSeconds = 0;
+
+        document.getElementById("timerRow").style.display = "none";
+
+    }
+
+},1000);
 
 </script>
 

@@ -6,7 +6,7 @@ from datetime import datetime
 import random
 import string
 import base64
-from datetime import datetime
+import time
 
 
 LOG_FOLDER = "logs"
@@ -435,11 +435,22 @@ def exam():
 
     return render_template("exam.html")
 
+face_cascade = cv2.CascadeClassifier(
+    "haarcascade_frontalface_default.xml"
+)
 
+face_detected = True
+face_count = 0
+face_missing_start = None
+missing_seconds = 0
 
 def generate_frames():
 
     camera = cv2.VideoCapture(0)
+
+    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    camera.set(cv2.CAP_PROP_FPS, 30)
 
     while True:
 
@@ -448,7 +459,90 @@ def generate_frames():
         if not success:
             break
 
-        _, buffer = cv2.imencode(".jpg", frame)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(80, 80)
+        )
+
+        global face_count
+
+        face_count = len(faces)
+
+        global face_missing_start
+        global missing_seconds
+
+        if face_count == 0:
+
+            if face_missing_start is None:
+                face_missing_start = time.time()
+
+            missing_seconds = int(time.time() - face_missing_start)
+
+        else:
+
+            face_missing_start = None
+            missing_seconds = 0
+
+        global face_detected
+
+        if len(faces) > 0:
+            face_detected = True
+        else:
+            face_detected = False
+
+        for (x, y, w, h) in faces:
+
+            cv2.rectangle(
+                frame,
+                (x, y),
+                (x + w, y + h),
+                (0, 255, 0),
+                2
+            )
+
+        current_time = datetime.now().strftime("%H:%M:%S")
+
+        cv2.putText(
+            frame,
+            f"Time : {current_time}",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2
+        )
+        
+        cv2.putText(
+            frame,
+            f"Faces : {face_count}",
+            (10, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2
+        )
+
+        if face_count == 0:
+
+            cv2.putText(
+                frame,
+                f"Missing : {missing_seconds} sec",
+                (10, 90),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 0, 255),
+                2
+            )
+
+        _, buffer = cv2.imencode(
+            ".jpg",
+            frame,
+            [cv2.IMWRITE_JPEG_QUALITY, 95]
+        )
 
         frame = buffer.tobytes()
 
@@ -466,6 +560,21 @@ def video_feed():
         generate_frames(),
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
+
+@app.route("/monitor")
+def monitor():
+
+    return {
+        "face_count": face_count
+    }
+
+
+@app.route("/face_status")
+def face_status():
+
+    return {
+        "face_detected": face_detected
+    }
 
 
 # ---------------- RUN APP ----------------
