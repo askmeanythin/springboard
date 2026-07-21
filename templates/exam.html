@@ -85,13 +85,11 @@
 
         <div class="camera-box">
 
-            <img
-                src="{{ url_for('video_feed') }}"
-                width="100%"
-                height="100%"
-            >
-
-        </div>
+    <img
+        id="camera"
+        width="100%"
+        height="100%"
+    >
 
 
     </div>
@@ -104,6 +102,7 @@
                 font-weight:bold;
                 margin-top:15px;">
         Warning: Face not detected!
+</div>
     </div>
 
     <div class="info">
@@ -136,18 +135,49 @@
             <li>Ensure proper lighting.</li>
 
         </ul>
+        <hr><br>
 
-        <button>
+<h3>Browser Activity</h3>
 
-            Start Exam
+<p>
+    <b>Browser Status :</b>
+    <span id="browserStatus">Browser Active</span>
+</p>
 
-        </button>
+<p>
+    <b>Focus Loss Events :</b>
+    <span id="focusCount">0</span>
+</p>
 
+<p>
+    <b>Last Focus Loss :</b>
+    <span id="lastLossTime">-</span>
+</p>
+<hr><br>
+
+<h3>Face Monitoring</h3>
+
+<p>
+    <b>Faces Detected :</b>
+    <span id="faceCount">0</span>
+</p>
+
+<p id="timerRow" style="display:none;">
+    <b>Face Missing :</b>
+    <span id="missingTimer">0</span> sec
+</p>
+
+       <button onclick="startExam()">
+    Start Exam
+</button>
     </div>
 
 </div>
 
 <script>
+
+
+
 
 function updateTime(){
 
@@ -162,41 +192,58 @@ updateTime();
 
 setInterval(updateTime,1000);
 
+async function startExam() {
+
+    await fetch("/start_exam", {
+        method: "POST"
+    });
+
+    document.getElementById("camera").src =
+        "{{ url_for('video_feed') }}";
+}
 </script>
 
 <script>
 
 let missingSeconds = 0;
 
-setInterval(async function(){
+setInterval(async function () {
 
-    const response = await fetch("/monitor");
+    try {
 
-    const data = await response.json();
+        const response = await fetch("/monitor");
 
-    document.getElementById("faceCount").innerHTML = data.face_count;
+        if (!response.ok) return;
 
-    if(data.face_count == 0){
+        const data = await response.json();
 
-        document.getElementById("timerRow").style.display = "block";
+        document.getElementById("faceCount").innerHTML = data.face_count;
 
-        missingSeconds++;
+        if (data.face_count == 0) {
 
-        document.getElementById("missingTimer").innerHTML = missingSeconds;
+            document.getElementById("timerRow").style.display = "block";
 
+            missingSeconds++;
+
+            document.getElementById("missingTimer").innerHTML = missingSeconds;
+
+        } else {
+
+            missingSeconds = 0;
+
+            document.getElementById("timerRow").style.display = "none";
+        }
+
+    } catch (err) {
+        console.log(err);
     }
-    else{
 
-        missingSeconds = 0;
-
-        document.getElementById("timerRow").style.display = "none";
-
-    }
-
-},1000);
+}, 1000);
 
 </script>
 
+<!-- Browser Monitoring -->
+<script src="{{ url_for('static', filename='js/browser_monitor.js') }}"></script>
 
 </body>
 </html>

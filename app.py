@@ -8,6 +8,36 @@ import string
 import base64
 import time
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "database", "exam.db")
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+print("Database:", DB_PATH)
+print("Exists:", os.path.exists(DB_PATH))
+
+try:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('Candidate', 'Session', 'EventLog')")
+    existing_tables = [row[0] for row in cursor.fetchall()]
+    for table in ['Candidate', 'Session', 'EventLog']:
+        if table not in existing_tables:
+            print(f"Warning: Table '{table}' is missing!")
+except sqlite3.Error as e:
+    print(f"Warning: Failed to validate tables: {e}")
+finally:
+    if 'conn' in locals() and conn:
+        conn.close()
+
+face_cascade = cv2.CascadeClassifier(
+    cv2.data.haarcascades +
+    "haarcascade_frontalface_default.xml"
+)
+
 
 LOG_FOLDER = "logs"
 
@@ -104,17 +134,22 @@ def register():
     if entered_captcha != stored_captcha:
         return "Invalid CAPTCHA!"
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "SELECT candidate_id FROM Candidate WHERE email=?",
-        (email,)
-    )
-
-    existing_user = cursor.fetchone()
-
-    conn.close()
+    query = "SELECT candidate_id FROM Candidate WHERE email=?"
+    params = (email,)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print("Executing:", query)
+        print("Parameters:", params)
+        cursor.execute(query, params)
+        existing_user = cursor.fetchone()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
     if existing_user:
         return "Email already registered!"
@@ -176,12 +211,12 @@ def save_candidate_photo():
     with open(photo_path, "wb") as photo_file:
         photo_file.write(image_bytes)
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
-
+    conn = None
     try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        cursor.execute("""
+        query_candidate = """
             INSERT INTO Candidate
             (
                 first_name,
@@ -192,30 +227,40 @@ def save_candidate_photo():
                 photo_path
             )
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (
+        """
+        params_candidate = (
             candidate["first_name"],
             candidate["middle_name"],
             candidate["last_name"],
             candidate["email"],
             candidate["password"],
             photo_path
-        ))
+        )
+        print("Executing:", query_candidate)
+        print("Parameters:", params_candidate)
+        cursor.execute(query_candidate, params_candidate)
 
         candidate_id = cursor.lastrowid
 
-        cursor.execute("""
+        query_event = """
             INSERT INTO EventLog
             (
                 candidate_id,
                 event_type,
+                timestamp,
                 remarks
             )
-            VALUES (?, ?, ?)
-        """, (
+            VALUES (?, ?, ?, ?)
+        """
+        params_event = (
             candidate_id,
             "Candidate Registered",
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Candidate account created and identity photo captured"
-        ))
+        )
+        print("Executing:", query_event)
+        print("Parameters:", params_event)
+        cursor.execute(query_event, params_event)
 
         conn.commit()
 
@@ -225,13 +270,17 @@ def save_candidate_photo():
         )
 
     except sqlite3.IntegrityError:
-
-        conn.rollback()
-        conn.close()
-
+        if conn:
+            conn.rollback()
         return "Email already registered!"
-
-    conn.close()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        if conn:
+            conn.rollback()
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
     session.pop("pending_candidate", None)
 
@@ -281,10 +330,7 @@ def login():
     if entered_captcha != stored_captcha:
         return "Invalid CAPTCHA!"
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
+    query = """
         SELECT
             candidate_id,
             first_name,
@@ -293,14 +339,22 @@ def login():
             email
         FROM Candidate
         WHERE email=? AND password=?
-    """, (
-        email,
-        password
-    ))
-
-    user = cursor.fetchone()
-
-    conn.close()
+    """
+    params = (email, password)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print("Executing:", query)
+        print("Parameters:", params)
+        cursor.execute(query, params)
+        user = cursor.fetchone()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
     if user is None:
         return "Invalid Email or Password!"
@@ -349,16 +403,31 @@ def welcome():
 @app.route("/start_exam", methods=["POST"])
 def start_exam():
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
+    candidate_id = session["candidate_id"]
 
-    cursor.execute("""
-        INSERT INTO Session(candidate_id,start_time,status)
-        VALUES(?,?,?)
-    """, ("C001", datetime.now(), "Started"))
-
-    conn.commit()
-    conn.close()
+    query = """
+INSERT INTO Session(candidate_id,start_time,status)
+VALUES(?,?,?)
+"""
+    params = (
+        candidate_id,
+        datetime.now(),
+        "Started"
+    )
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print("Executing:", query)
+        print("Parameters:", params)
+        cursor.execute(query, params)
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
     return "Exam Started Successfully!"
 
@@ -368,17 +437,26 @@ def start_exam():
 @app.route("/pause_exam", methods=["POST"])
 def pause_exam():
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
+    query = """
         UPDATE Session
         SET status=?
         WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """, ("Paused",))
-
-    conn.commit()
-    conn.close()
+    """
+    params = ("Paused",)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print("Executing:", query)
+        print("Parameters:", params)
+        cursor.execute(query, params)
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
     return "Exam Paused Successfully!"
 
@@ -388,17 +466,26 @@ def pause_exam():
 @app.route("/resume_exam", methods=["POST"])
 def resume_exam():
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
+    query = """
         UPDATE Session
         SET status=?
         WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """, ("Resumed",))
-
-    conn.commit()
-    conn.close()
+    """
+    params = ("Resumed",)
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print("Executing:", query)
+        print("Parameters:", params)
+        cursor.execute(query, params)
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
     return "Exam Resumed Successfully!"
 
@@ -408,19 +495,28 @@ def resume_exam():
 @app.route("/end_exam", methods=["POST"])
 def end_exam():
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
+    query = """
         UPDATE Session
         SET
             end_time=?,
             status=?
         WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """, (datetime.now(), "Completed"))
-
-    conn.commit()
-    conn.close()
+    """
+    params = (datetime.now(), "Completed")
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print("Executing:", query)
+        print("Parameters:", params)
+        cursor.execute(query, params)
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
 
     return "Exam Ended Successfully!"
 
@@ -430,6 +526,55 @@ def end_exam():
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
+
+@app.route("/browser_event", methods=["POST"])
+def browser_event():
+
+    if "candidate_id" not in session:
+        return "Unauthorized", 401
+
+    data = request.get_json()
+
+    event_type = data.get("event_type")
+
+    remarks = data.get("remarks", "")
+
+    candidate_id = session["candidate_id"]
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    query = """
+        INSERT INTO EventLog
+        (
+            candidate_id,
+            event_type,
+            timestamp,
+            remarks
+        )
+        VALUES (?, ?, ?, ?)
+    """
+    params = (
+        candidate_id,
+        event_type,
+        timestamp,
+        remarks
+    )
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        print("Executing:", query)
+        print("Parameters:", params)
+        cursor.execute(query, params)
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database Error: {e}")
+        return f"Database Error: {e}", 500
+    finally:
+        if conn:
+            conn.close()
+
+    return {"status": "success"}
 
 
 
@@ -454,28 +599,19 @@ def exam():
     current_candidate_email = session["candidate_email"]
 
     return render_template("exam.html")
-
-face_cascade = cv2.CascadeClassifier(
-    "haarcascade_frontalface_default.xml"
-)
-
-face_detected = True
 face_count = 0
-face_missing_start = None
-missing_seconds = 0
-
-last_face_count = 0
-last_missing_state = False
-
+face_detected = False
 current_candidate_email = None
 
+
 def generate_frames():
+    global face_count
+    global face_detected
 
-    camera = cv2.VideoCapture(0)
+    camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    camera.set(cv2.CAP_PROP_FPS, 30)
+    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     while True:
 
@@ -488,80 +624,15 @@ def generate_frames():
 
         faces = face_cascade.detectMultiScale(
             gray,
-            scaleFactor=1.1,
+            scaleFactor=1.2,
             minNeighbors=5,
             minSize=(80, 80)
         )
 
-        global face_count
-        global face_missing_start
-        global missing_seconds
-
-        global last_face_count
-        global last_missing_state
-
         face_count = len(faces)
-
-        email = current_candidate_email
-
-        if email:
-
-            if face_count >= 2 and last_face_count < 2:
-                append_exam_log(
-                    email,
-                    f"Multiple Faces Detected ({face_count} Faces)"
-                )
-
-            elif face_count == 1 and last_face_count >= 2:
-                append_exam_log(
-                    email,
-                    "Face Count Normal (1 Face)"
-                )
-
-        last_face_count = face_count
-
-
-
-        if face_count == 0:
-
-            if face_missing_start is None:
-
-                face_missing_start = time.time()
-
-                if email and not last_missing_state:
-                    append_exam_log(
-                        email,
-                        "Candidate Missing"
-                    )
-
-                last_missing_state = True
-
-            missing_seconds = int(
-                time.time() - face_missing_start
-            )
-
-        else:
-
-            if last_missing_state and email:
-
-                append_exam_log(
-                    email,
-                    f"Candidate Returned (Missing {missing_seconds} sec)"
-                )
-
-            face_missing_start = None
-            missing_seconds = 0
-            last_missing_state = False
-
-        global face_detected
-
-        if len(faces) > 0:
-            face_detected = True
-        else:
-            face_detected = False
+        face_detected = (face_count > 0)
 
         for (x, y, w, h) in faces:
-
             cv2.rectangle(
                 frame,
                 (x, y),
@@ -570,46 +641,7 @@ def generate_frames():
                 2
             )
 
-        current_time = datetime.now().strftime("%H:%M:%S")
-
-        cv2.putText(
-            frame,
-            f"Time : {current_time}",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2
-        )
-        
-        cv2.putText(
-            frame,
-            f"Faces : {face_count}",
-            (10, 60),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2
-        )
-
-        if face_count == 0:
-
-            cv2.putText(
-                frame,
-                f"Missing : {missing_seconds} sec",
-                (10, 90),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 0, 255),
-                2
-            )
-
-        _, buffer = cv2.imencode(
-            ".jpg",
-            frame,
-            [cv2.IMWRITE_JPEG_QUALITY, 95]
-        )
-
+        _, buffer = cv2.imencode(".jpg", frame)
         frame = buffer.tobytes()
 
         yield (
@@ -619,17 +651,17 @@ def generate_frames():
             b'\r\n'
         )
 
+    camera.release()
 @app.route("/video_feed")
 def video_feed():
-
     return Response(
         generate_frames(),
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
 
+
 @app.route("/monitor")
 def monitor():
-
     return {
         "face_count": face_count
     }
@@ -637,15 +669,15 @@ def monitor():
 
 @app.route("/face_status")
 def face_status():
-
     return {
         "face_detected": face_detected
     }
 
 
+
 # ---------------- RUN APP ----------------
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)
 
 

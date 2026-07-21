@@ -9,7 +9,26 @@
 
 <h3>Welcome {{ name }}</h3>
 
-<br>
+<hr>
+
+<h3>Browser Activity Monitoring</h3>
+
+<p>
+    <strong>Browser Status:</strong>
+    <span id="browserStatus">Browser Active</span>
+</p>
+
+<p>
+    <strong>Focus Loss Events:</strong>
+    <span id="focusCount">0</span>
+</p>
+
+<p>
+    <strong>Last Focus Loss Time:</strong>
+    <span id="lastLossTime">-</span>
+</p>
+
+<hr>
 
 <form action="/exam" method="GET">
     <button type="submit">Start Exam</button>
@@ -32,6 +51,14 @@
 <form action="/end_exam" method="POST">
     <button type="submit">End Exam</button>
 </form>
+
+<!-- Optional: Candidate ID (not required since Flask session is used) -->
+<script>
+    const candidateId = "{{ session['candidate_id'] }}";
+</script>
+
+<!-- Browser Monitoring Script -->
+<script src="{{ url_for('static', filename='js/browser_monitor.js') }}"></script>
 
 </body>
 </html>
