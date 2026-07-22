@@ -121,6 +121,25 @@
         
         <hr><br>
 
+        <h3>Browser Monitoring</h3>
+
+        <p>
+            <b>Browser Status :</b>
+            <span id="browserStatus">Browser Active</span>
+        </p>
+
+        <p>
+            <b>Focus Loss Events :</b>
+            <span id="focusCount">0</span>
+        </p>
+
+        <p>
+            <b>Last Focus Loss Time :</b>
+            <span id="lastFocusTime">None</span>
+        </p>
+
+        <hr><br>
+
         <h3>Guidelines</h3>
 
         <ul>
@@ -197,6 +216,53 @@ setInterval(async function(){
 
 </script>
 
+
+<script>
+
+let focusLossCount = 0;
+
+document.addEventListener("visibilitychange", function () {
+
+    if (document.hidden) {
+
+        document.getElementById("browserStatus").innerHTML = "Browser Inactive";
+
+        focusLossCount++;
+
+        document.getElementById("focusCount").innerHTML = focusLossCount;
+
+        document.getElementById("lastFocusTime").innerHTML =
+            new Date().toLocaleTimeString();
+
+        fetch("/browser_event", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                event: "Browser Focus Lost"
+            })
+        });
+
+    } else {
+
+        document.getElementById("browserStatus").innerHTML = "Browser Active";
+
+        fetch("/browser_event", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                event: "Browser Focus Regained"
+            })
+        });
+
+    }
+
+});
+
+</script>
 
 </body>
 </html>

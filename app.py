@@ -643,6 +643,25 @@ def face_status():
     }
 
 
+
+@app.route("/browser_event", methods=["POST"])
+def browser_event():
+
+    if "candidate_email" not in session:
+        return {"status": "error"}
+
+    data = request.get_json()
+
+    event = data.get("event")
+
+    append_exam_log(
+        session["candidate_email"],
+        event
+    )
+
+    return {"status": "success"}
+
+
 # ---------------- RUN APP ----------------
 
 if __name__ == "__main__":
