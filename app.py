@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for, Response
+from flask import Flask, render_template, request, session, redirect, url_for, Response,jsonify
 import sqlite3
 import cv2
 import os
@@ -11,28 +11,8 @@ import time
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "database", "exam.db")
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-print("Database:", DB_PATH)
+print("Database path:", DB_PATH)
 print("Exists:", os.path.exists(DB_PATH))
-
-try:
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('Candidate', 'Session', 'EventLog')")
-    existing_tables = [row[0] for row in cursor.fetchall()]
-    for table in ['Candidate', 'Session', 'EventLog']:
-        if table not in existing_tables:
-            print(f"Warning: Table '{table}' is missing!")
-except sqlite3.Error as e:
-    print(f"Warning: Failed to validate tables: {e}")
-finally:
-    if 'conn' in locals() and conn:
-        conn.close()
-
 face_cascade = cv2.CascadeClassifier(
     cv2.data.haarcascades +
     "haarcascade_frontalface_default.xml"
@@ -134,22 +114,17 @@ def register():
     if entered_captcha != stored_captcha:
         return "Invalid CAPTCHA!"
 
-    query = "SELECT candidate_id FROM Candidate WHERE email=?"
-    params = (email,)
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        print("Executing:", query)
-        print("Parameters:", params)
-        cursor.execute(query, params)
-        existing_user = cursor.fetchone()
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT candidate_id FROM Candidate WHERE email=?",
+        (email,)
+    )
+
+    existing_user = cursor.fetchone()
+
+    conn.close()
 
     if existing_user:
         return "Email already registered!"
@@ -211,12 +186,12 @@ def save_candidate_photo():
     with open(photo_path, "wb") as photo_file:
         photo_file.write(image_bytes)
 
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
 
-        query_candidate = """
+    try:
+
+        cursor.execute("""
             INSERT INTO Candidate
             (
                 first_name,
@@ -227,40 +202,30 @@ def save_candidate_photo():
                 photo_path
             )
             VALUES (?, ?, ?, ?, ?, ?)
-        """
-        params_candidate = (
+        """, (
             candidate["first_name"],
             candidate["middle_name"],
             candidate["last_name"],
             candidate["email"],
             candidate["password"],
             photo_path
-        )
-        print("Executing:", query_candidate)
-        print("Parameters:", params_candidate)
-        cursor.execute(query_candidate, params_candidate)
+        ))
 
         candidate_id = cursor.lastrowid
 
-        query_event = """
+        cursor.execute("""
             INSERT INTO EventLog
             (
                 candidate_id,
                 event_type,
-                timestamp,
                 remarks
             )
-            VALUES (?, ?, ?, ?)
-        """
-        params_event = (
+            VALUES (?, ?, ?)
+        """, (
             candidate_id,
             "Candidate Registered",
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Candidate account created and identity photo captured"
-        )
-        print("Executing:", query_event)
-        print("Parameters:", params_event)
-        cursor.execute(query_event, params_event)
+        ))
 
         conn.commit()
 
@@ -270,17 +235,13 @@ def save_candidate_photo():
         )
 
     except sqlite3.IntegrityError:
-        if conn:
-            conn.rollback()
+
+        conn.rollback()
+        conn.close()
+
         return "Email already registered!"
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        if conn:
-            conn.rollback()
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+
+    conn.close()
 
     session.pop("pending_candidate", None)
 
@@ -330,7 +291,10 @@ def login():
     if entered_captcha != stored_captcha:
         return "Invalid CAPTCHA!"
 
-    query = """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
         SELECT
             candidate_id,
             first_name,
@@ -339,22 +303,14 @@ def login():
             email
         FROM Candidate
         WHERE email=? AND password=?
-    """
-    params = (email, password)
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        print("Executing:", query)
-        print("Parameters:", params)
-        cursor.execute(query, params)
-        user = cursor.fetchone()
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+    """, (
+        email,
+        password
+    ))
+
+    user = cursor.fetchone()
+
+    conn.close()
 
     if user is None:
         return "Invalid Email or Password!"
@@ -403,31 +359,22 @@ def welcome():
 @app.route("/start_exam", methods=["POST"])
 def start_exam():
 
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
     candidate_id = session["candidate_id"]
 
-    query = """
+    cursor.execute("""
 INSERT INTO Session(candidate_id,start_time,status)
 VALUES(?,?,?)
-"""
-    params = (
-        candidate_id,
-        datetime.now(),
-        "Started"
-    )
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        print("Executing:", query)
-        print("Parameters:", params)
-        cursor.execute(query, params)
-        conn.commit()
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+""", (
+    candidate_id,
+    datetime.now(),
+    "Started"
+))
+
+    conn.commit()
+    conn.close()
 
     return "Exam Started Successfully!"
 
@@ -437,26 +384,17 @@ VALUES(?,?,?)
 @app.route("/pause_exam", methods=["POST"])
 def pause_exam():
 
-    query = """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
         UPDATE Session
         SET status=?
         WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """
-    params = ("Paused",)
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        print("Executing:", query)
-        print("Parameters:", params)
-        cursor.execute(query, params)
-        conn.commit()
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+    """, ("Paused",))
+
+    conn.commit()
+    conn.close()
 
     return "Exam Paused Successfully!"
 
@@ -466,26 +404,17 @@ def pause_exam():
 @app.route("/resume_exam", methods=["POST"])
 def resume_exam():
 
-    query = """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
         UPDATE Session
         SET status=?
         WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """
-    params = ("Resumed",)
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        print("Executing:", query)
-        print("Parameters:", params)
-        cursor.execute(query, params)
-        conn.commit()
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+    """, ("Resumed",))
+
+    conn.commit()
+    conn.close()
 
     return "Exam Resumed Successfully!"
 
@@ -495,28 +424,19 @@ def resume_exam():
 @app.route("/end_exam", methods=["POST"])
 def end_exam():
 
-    query = """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
         UPDATE Session
         SET
             end_time=?,
             status=?
         WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """
-    params = (datetime.now(), "Completed")
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        print("Executing:", query)
-        print("Parameters:", params)
-        cursor.execute(query, params)
-        conn.commit()
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+    """, (datetime.now(), "Completed"))
+
+    conn.commit()
+    conn.close()
 
     return "Exam Ended Successfully!"
 
@@ -543,7 +463,10 @@ def browser_event():
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    query = """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
         INSERT INTO EventLog
         (
             candidate_id,
@@ -552,27 +475,15 @@ def browser_event():
             remarks
         )
         VALUES (?, ?, ?, ?)
-    """
-    params = (
+    """, (
         candidate_id,
         event_type,
         timestamp,
         remarks
-    )
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        print("Executing:", query)
-        print("Parameters:", params)
-        cursor.execute(query, params)
-        conn.commit()
-    except sqlite3.Error as e:
-        print(f"Database Error: {e}")
-        return f"Database Error: {e}", 500
-    finally:
-        if conn:
-            conn.close()
+    ))
+
+    conn.commit()
+    conn.close()
 
     return {"status": "success"}
 
@@ -603,10 +514,23 @@ face_count = 0
 face_detected = False
 current_candidate_email = None
 
+face_status = "Face Seen"
+warning_message = ""
+
+face_missing_start = None
+last_face_state = "Detected"
+last_face_count = 0
+
 
 def generate_frames():
+
     global face_count
     global face_detected
+    global face_status
+    global warning_message
+    global face_missing_start
+    global last_face_state
+    global last_face_count
 
     camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
@@ -630,18 +554,121 @@ def generate_frames():
         )
 
         face_count = len(faces)
-        face_detected = (face_count > 0)
+
+        current_time = time.time()
+
+        # ---------------- NO FACE ----------------
+
+        if face_count == 0:
+
+            face_detected = False
+            face_status = "Face Not Detected"
+
+            if face_missing_start is None:
+                face_missing_start = current_time
+
+                if current_candidate_email:
+                    append_exam_log(
+                        current_candidate_email,
+                        "Face Not Detected"
+                    )
+
+            missing_time = current_time - face_missing_start
+
+            if missing_time >= 5:
+                warning_message = "WARNING: Stay in the frame. Face missing for more than 5 seconds!"
+
+            else:
+                warning_message = ""
+
+        # ---------------- ONE FACE ----------------
+
+        elif face_count == 1:
+
+            face_detected = True
+            face_status = "Face Seen"
+            warning_message = ""
+            face_missing_start = None
+
+            if last_face_state != "Detected":
+
+                if current_candidate_email:
+                    append_exam_log(
+                        current_candidate_email,
+                        "Face Detected Again"
+                    )
+
+        # ---------------- MULTIPLE FACES ----------------
+
+        else:
+
+            face_detected = True
+            face_status = f"Multiple Faces Detected ({face_count})"
+            warning_message = "WARNING: Multiple Faces Detected"
+
+            if last_face_count != face_count:
+
+                if current_candidate_email:
+                    append_exam_log(
+                        current_candidate_email,
+                        f"Multiple Faces Detected ({face_count})"
+                    )
+
+        last_face_state = "Detected" if face_detected else "Missing"
+        last_face_count = face_count
+
+        # ---------------- DRAW FACE BOX ----------------
 
         for (x, y, w, h) in faces:
+
             cv2.rectangle(
                 frame,
                 (x, y),
-                (x + w, y + h),
-                (0, 255, 0),
+                (x+w, y+h),
+                (0,255,0),
                 2
             )
 
+        # ---------------- STATUS ----------------
+
+        cv2.putText(
+            frame,
+            face_status,
+            (10,30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0,255,0) if face_detected else (0,0,255),
+            2
+        )
+
+        # ---------------- WARNING ----------------
+
+        if warning_message != "":
+
+            cv2.putText(
+                frame,
+                warning_message,
+                (10,65),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0,0,255),
+                2
+            )
+
+        # ---------------- FACE COUNT ----------------
+
+        cv2.putText(
+            frame,
+            f"Faces : {face_count}",
+            (10,95),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255,0,0),
+            2
+        )
+
         _, buffer = cv2.imencode(".jpg", frame)
+
         frame = buffer.tobytes()
 
         yield (
@@ -662,9 +689,18 @@ def video_feed():
 
 @app.route("/monitor")
 def monitor():
-    return {
-        "face_count": face_count
-    }
+
+    return jsonify({
+
+        "face_count": face_count,
+
+        "face_detected": face_detected,
+
+        "face_status": face_status,
+
+        "warning": warning_message
+
+    })
 
 
 @app.route("/face_status")
