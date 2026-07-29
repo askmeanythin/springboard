@@ -115,6 +115,20 @@
         <p><b>Email :</b> {{ session['candidate_email'] }}</p>
 
         <p>
+            <b>Integrity Score :</b>
+            <span
+                id="integrityScore"
+                style="
+                color:green;
+                font-size:24px;
+                font-weight:bold;
+                "
+            >
+                100
+            </span>
+        </p>
+
+        <p>
             <b>Current Time :</b>
             <span id="currentTime"></span>
         </p>
@@ -261,6 +275,47 @@ document.addEventListener("visibilitychange", function () {
     }
 
 });
+
+</script>
+
+<script>
+
+async function updateIntegrity(){
+
+    const response = await fetch("/integrity");
+
+    const data = await response.json();
+
+    const score = data.integrity;
+
+    const scoreElement =
+        document.getElementById("integrityScore");
+
+    scoreElement.innerHTML = score;
+
+    if(score >= 70){
+
+        scoreElement.style.color = "green";
+
+    }
+
+    else if(score >= 40){
+
+        scoreElement.style.color = "orange";
+
+    }
+
+    else{
+
+        scoreElement.style.color = "red";
+
+    }
+
+}
+
+updateIntegrity();
+
+setInterval(updateIntegrity,1000);
 
 </script>
 

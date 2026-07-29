@@ -14,26 +14,123 @@ LOG_FOLDER = "logs"
 os.makedirs(LOG_FOLDER, exist_ok=True)
 
 def write_user_log(email, message):
-    filename = os.path.join(LOG_FOLDER, f"{email}.log")
 
-    with open(filename, "a") as file:
-        file.write("=" * 50 + "\n")
-        file.write(message + "\n")
-        file.write("Date : " + datetime.now().strftime("%d-%m-%Y") + "\n")
-        file.write("Time : " + datetime.now().strftime("%H:%M:%S") + "\n")
-        file.write("=" * 50 + "\n\n")
+    print("append_exam_log called:", email, message)
+
+    table_name = (
+        email
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
+    )
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute(f'''
+        INSERT INTO "{table_name}"
+        (
+            event,
+            remarks,
+            integrity
+        )
+        VALUES (?, ?, ?)
+    ''',
+    (
+        "System Log",
+        message,
+        100
+    ))
+
+    conn.commit()
+    conn.close()
 
 def append_exam_log(email, message):
 
-    filename = os.path.join(LOG_FOLDER, f"{email}.log")
+    table_name = (
+        email
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
+    )
 
-    with open(filename, "a") as file:
-        file.write(f"[{datetime.now().strftime('%H:%M:%S')}] {message}\n")
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute(f'''
+        SELECT integrity
+        FROM "{table_name}"
+        ORDER BY log_id DESC
+        LIMIT 1
+    ''')
+
+    row = cursor.fetchone()
+
+    if row:
+        integrity = row[0]
+    else:
+        integrity = 100
+
+
+    penalty = 0
+
+    if "Candidate Missing" in message:
+        penalty = 10
+
+    elif "Multiple Faces" in message:
+        penalty = 5
+
+    elif "Browser Focus Lost" in message:
+        penalty = 15
+
+    integrity = max(0, integrity - penalty)
+
+    cursor.execute(f'''
+        INSERT INTO "{table_name}"
+        (
+            event,
+            remarks,
+            integrity
+        )
+        VALUES (?, ?, ?)
+    ''',
+    (
+        "Exam Event",
+        message,
+        integrity
+    ))
+
+    conn.commit()
+    conn.close()
 
 app = Flask(__name__)
 app.secret_key = "exam-monitoring-secret-key"
 
 
+
+
+
+def create_candidate_log_table(cursor, email):
+
+    table_name = (
+        email
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
+    )
+
+
+
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS "{table_name}"
+        (
+            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            event TEXT NOT NULL,
+            remarks TEXT,
+            integrity INTEGER NOT NULL
+        )
+    """)
 # ---------------- HOME PAGE ----------------
 
 @app.route("/")
@@ -202,6 +299,10 @@ def save_candidate_photo():
         ))
 
         candidate_id = cursor.lastrowid
+        create_candidate_log_table(
+            cursor,
+            candidate["email"]
+        )
 
         cursor.execute("""
             INSERT INTO EventLog
@@ -441,14 +542,36 @@ def exam():
         return redirect(url_for("login_page"))
     
 
-    write_user_log(
-        session["candidate_email"],
-        f"""Exam Started
-
-    Initial Status
-    Faces Detected : {face_count}
-    Missing Time : 0 sec"""
+    table_name = (
+        session["candidate_email"]
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
     )
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute(f"""
+        INSERT INTO "{table_name}"
+        (
+            event,
+            remarks,
+            integrity
+        )
+        VALUES (?, ?, ?)
+    """,
+    (
+        "Exam Started",
+        f"""Initial Status
+
+    Faces Detected : {face_count}
+    Missing Time : 0 sec""",
+        100
+    ))
+
+    conn.commit()
+    conn.close()
 
     global current_candidate_email
     current_candidate_email = session["candidate_email"]
@@ -642,6 +765,37 @@ def face_status():
         "face_detected": face_detected
     }
 
+@app.route("/integrity")
+def integrity():
+
+    if "candidate_email" not in session:
+        return {"integrity": 100}
+
+    table_name = (
+        session["candidate_email"]
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
+    )
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute(f"""
+        SELECT integrity
+        FROM "{table_name}"
+        ORDER BY log_id DESC
+        LIMIT 1
+    """)
+
+    row = cursor.fetchone()
+
+    conn.close()
+
+    if row:
+        return {"integrity": row[0]}
+
+    return {"integrity": 100}
 
 
 @app.route("/browser_event", methods=["POST"])
