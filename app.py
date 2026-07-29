@@ -80,10 +80,7 @@ def append_exam_log(email, message):
     elif "Multiple Faces" in message:
         penalty = 5
 
-    elif (
-        "Tab" in message
-        or "Hidden" in message
-    ):
+    elif "Browser Focus Lost" in message:
         penalty = 15
 
     integrity = max(0, integrity - penalty)
@@ -545,14 +542,36 @@ def exam():
         return redirect(url_for("login_page"))
     
 
-    write_user_log(
-        session["candidate_email"],
-        f"""Exam Started
-
-    Initial Status
-    Faces Detected : {face_count}
-    Missing Time : 0 sec"""
+    table_name = (
+        session["candidate_email"]
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
     )
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute(f"""
+        INSERT INTO "{table_name}"
+        (
+            event,
+            remarks,
+            integrity
+        )
+        VALUES (?, ?, ?)
+    """,
+    (
+        "Exam Started",
+        f"""Initial Status
+
+    Faces Detected : {face_count}
+    Missing Time : 0 sec""",
+        100
+    ))
+
+    conn.commit()
+    conn.close()
 
     global current_candidate_email
     current_candidate_email = session["candidate_email"]
@@ -746,6 +765,37 @@ def face_status():
         "face_detected": face_detected
     }
 
+@app.route("/integrity")
+def integrity():
+
+    if "candidate_email" not in session:
+        return {"integrity": 100}
+
+    table_name = (
+        session["candidate_email"]
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
+    )
+
+    conn = sqlite3.connect("database/exam.db")
+    cursor = conn.cursor()
+
+    cursor.execute(f"""
+        SELECT integrity
+        FROM "{table_name}"
+        ORDER BY log_id DESC
+        LIMIT 1
+    """)
+
+    row = cursor.fetchone()
+
+    conn.close()
+
+    if row:
+        return {"integrity": row[0]}
+
+    return {"integrity": 100}
 
 
 @app.route("/browser_event", methods=["POST"])
