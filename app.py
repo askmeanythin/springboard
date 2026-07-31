@@ -10,52 +10,69 @@ import time
 
 
 LOG_FOLDER = "logs"
+DB_PATH = "database/exam.db"
 
 os.makedirs(LOG_FOLDER, exist_ok=True)
 
-def write_user_log(email, message):
+FACE_MISSING_THRESHOLD = 5
+MULTIPLE_FACE_THRESHOLD = 5
+BROWSER_FOCUS_THRESHOLD = 3
+FACE_MISSING_PENALTY = 10
+MULTIPLE_FACE_PENALTY = 5
+BROWSER_FOCUS_PENALTY = 5
 
-    print("append_exam_log called:", email, message)
 
-    table_name = (
+def db_connect():
+    connection = sqlite3.connect(
+        DB_PATH,
+        detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+    )
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
+
+
+def sanitize_table_name(email):
+    return (
         email
         .replace("@", "_")
         .replace(".", "_")
         .replace("-", "_")
     )
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
 
-    cursor.execute(f'''
-        INSERT INTO "{table_name}"
+def ensure_candidate_log_table(cursor, email):
+    table_name = sanitize_table_name(email)
+
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS "{table_name}"
         (
-            event,
-            remarks,
-            integrity
+            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            event TEXT NOT NULL,
+            remarks TEXT,
+            integrity INTEGER NOT NULL,
+            penalty INTEGER NOT NULL DEFAULT 0,
+            event_type TEXT NOT NULL DEFAULT 'Exam Event'
         )
-        VALUES (?, ?, ?)
-    ''',
-    (
-        "System Log",
-        message,
-        100
-    ))
+    """)
 
-    conn.commit()
-    conn.close()
+    cursor.execute(f"PRAGMA table_info('{table_name}')")
+    columns = [row[1] for row in cursor.fetchall()]
 
-def append_exam_log(email, message):
+    if "penalty" not in columns:
+        cursor.execute(
+            f"ALTER TABLE \"{table_name}\" ADD COLUMN penalty INTEGER NOT NULL DEFAULT 0"
+        )
 
-    table_name = (
-        email
-        .replace("@", "_")
-        .replace(".", "_")
-        .replace("-", "_")
-    )
+    if "event_type" not in columns:
+        cursor.execute(
+            f"ALTER TABLE \"{table_name}\" ADD COLUMN event_type TEXT NOT NULL DEFAULT 'Exam Event'"
+        )
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
+
+def get_latest_integrity(cursor, email):
+    table_name = sanitize_table_name(email)
 
     cursor.execute(f'''
         SELECT integrity
@@ -66,72 +83,275 @@ def append_exam_log(email, message):
 
     row = cursor.fetchone()
 
-    if row:
-        integrity = row[0]
+    return row[0] if row else 100
+
+
+def get_latest_session_id(candidate_id):
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT session_id
+        FROM Session
+        WHERE candidate_id=?
+        ORDER BY session_id DESC
+        LIMIT 1
+    """, (candidate_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    return row[0] if row else None
+
+
+def format_duration(start_time, end_time=None):
+    if start_time is None:
+        return ""
+
+    if isinstance(start_time, str):
+        start_time = datetime.fromisoformat(start_time)
+
+    if end_time is None:
+        end_time = datetime.now()
+    elif isinstance(end_time, str):
+        end_time = datetime.fromisoformat(end_time)
+
+    duration = end_time - start_time
+    return str(duration).split(".")[0]
+
+
+def parse_timestamp(value):
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    return None
+
+
+def get_last_penalty_after(cursor, email, log_id, reason):
+    table_name = sanitize_table_name(email)
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM "{table_name}"
+        WHERE event_type='Penalty'
+        AND remarks LIKE ?
+        AND log_id > ?
+    """, (f"{reason}%", log_id))
+    return cursor.fetchone()[0] > 0
+
+
+def process_browser_focus_event(email, event):
+    append_exam_log(
+        email,
+        event,
+        remarks=event,
+        event_type="Browser Event",
+        penalty=0
+    )
+
+    if event != "Browser Focus Regained":
+        return
+
+    conn = db_connect()
+    cursor = conn.cursor()
+    ensure_candidate_log_table(cursor, email)
+
+    table_name = sanitize_table_name(email)
+    cursor.execute(f"""
+        SELECT log_id, timestamp
+        FROM "{table_name}"
+        WHERE event_type='Browser Event'
+        AND event='Browser Focus Lost'
+        ORDER BY log_id DESC
+        LIMIT 1
+    """)
+    lost_row = cursor.fetchone()
+
+    if not lost_row:
+        conn.close()
+        return
+
+    lost_id = lost_row["log_id"]
+    lost_ts = parse_timestamp(lost_row["timestamp"])
+    if lost_ts is None:
+        conn.close()
+        return
+
+    if get_last_penalty_after(cursor, email, lost_id, "Browser Focus Lost"):
+        conn.close()
+        return
+
+    elapsed = int((datetime.now() - lost_ts).total_seconds())
+    if elapsed >= BROWSER_FOCUS_THRESHOLD:
+        apply_penalty(
+            email,
+            "Browser Focus Lost",
+            BROWSER_FOCUS_PENALTY,
+            event="Browser Focus Lost Penalty"
+        )
+
+    conn.close()
+
+
+def get_report_metrics(email):
+    table_name = sanitize_table_name(email)
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    ensure_candidate_log_table(cursor, email)
+
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM "{table_name}"
+        WHERE penalty > 0
+        AND event_type = 'Penalty'
+        AND remarks LIKE 'Candidate Missing%'
+    """)
+    face_absence_count = cursor.fetchone()[0]
+
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM "{table_name}"
+        WHERE penalty > 0
+        AND event_type = 'Penalty'
+        AND remarks LIKE 'Browser Focus Lost%'
+    """)
+    browser_focus_loss_count = cursor.fetchone()[0]
+
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM "{table_name}"
+        WHERE penalty > 0
+        AND event_type = 'Penalty'
+        AND remarks LIKE 'Multiple Faces Detected%'
+    """)
+    multiple_face_count = cursor.fetchone()[0]
+
+    cursor.execute(f"""
+        SELECT COUNT(*)
+        FROM "{table_name}"
+        WHERE penalty > 0
+    """)
+    total_suspicious_events = cursor.fetchone()[0]
+
+    cursor.execute(f"""
+        SELECT log_id, timestamp, event, remarks, integrity, penalty, event_type
+        FROM "{table_name}"
+        ORDER BY log_id ASC
+    """)
+    event_timeline = [dict(row) for row in cursor.fetchall()]
+
+    final_integrity = 100
+    if event_timeline:
+        final_integrity = event_timeline[-1]["integrity"]
+
+    conn.close()
+
+    if final_integrity >= 90:
+        overall_remark = "Excellent integrity maintained."
+    elif final_integrity >= 70:
+        overall_remark = "Good integrity with minor issues."
+    elif final_integrity >= 40:
+        overall_remark = "Integrity concerns detected. Review required."
     else:
-        integrity = 100
+        overall_remark = "Integrity severely compromised."
+
+    return {
+        "face_absence_count": face_absence_count,
+        "browser_focus_loss_count": browser_focus_loss_count,
+        "multiple_face_count": multiple_face_count,
+        "total_suspicious_events": total_suspicious_events,
+        "final_integrity": final_integrity,
+        "overall_remark": overall_remark,
+        "event_timeline": event_timeline
+    }
 
 
-    penalty = 0
+def append_exam_log(email, event, remarks=None, event_type="Exam Event", penalty=0):
+    table_name = sanitize_table_name(email)
 
-    if "Candidate Missing" in message:
-        penalty = 10
+    conn = db_connect()
+    cursor = conn.cursor()
 
-    elif "Multiple Faces" in message:
-        penalty = 5
+    ensure_candidate_log_table(cursor, email)
 
-    elif "Browser Focus Lost" in message:
-        penalty = 15
-
-    integrity = max(0, integrity - penalty)
+    integrity = get_latest_integrity(cursor, email)
 
     cursor.execute(f'''
         INSERT INTO "{table_name}"
         (
             event,
             remarks,
-            integrity
+            integrity,
+            penalty,
+            event_type
         )
-        VALUES (?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
     ''',
     (
-        "Exam Event",
-        message,
-        integrity
+        event,
+        remarks,
+        integrity,
+        penalty,
+        event_type
     ))
 
     conn.commit()
     conn.close()
 
-app = Flask(__name__)
-app.secret_key = "exam-monitoring-secret-key"
 
+def apply_penalty(email, reason, penalty, event="Penalty"):
+    table_name = sanitize_table_name(email)
 
+    conn = db_connect()
+    cursor = conn.cursor()
 
+    ensure_candidate_log_table(cursor, email)
+
+    current_integrity = get_latest_integrity(cursor, email)
+    new_integrity = max(0, current_integrity - penalty)
+
+    cursor.execute(f'''
+        INSERT INTO "{table_name}"
+        (
+            event,
+            remarks,
+            integrity,
+            penalty,
+            event_type
+        )
+        VALUES (?, ?, ?, ?, ?)
+    ''',
+    (
+        event,
+        f"{reason} (-{penalty})",
+        new_integrity,
+        penalty,
+        "Penalty"
+    ))
+
+    conn.commit()
+    conn.close()
 
 
 def create_candidate_log_table(cursor, email):
+    ensure_candidate_log_table(cursor, email)
 
-    table_name = (
-        email
-        .replace("@", "_")
-        .replace(".", "_")
-        .replace("-", "_")
+
+def write_user_log(email, message):
+    append_exam_log(
+        email,
+        "System Log",
+        message,
+        event_type="System Log",
+        penalty=0
     )
 
-
-
-    cursor.execute(f"""
-        CREATE TABLE IF NOT EXISTS "{table_name}"
-        (
-            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            event TEXT NOT NULL,
-            remarks TEXT,
-            integrity INTEGER NOT NULL
-        )
-    """)
 # ---------------- HOME PAGE ----------------
+
+
+app = Flask(__name__)
+app.secret_key = "exam-monitoring-secret-key"
 
 @app.route("/")
 def home():
@@ -201,7 +421,7 @@ def register():
     if entered_captcha != stored_captcha:
         return "Invalid CAPTCHA!"
 
-    conn = sqlite3.connect("database/exam.db")
+    conn = db_connect()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -273,7 +493,7 @@ def save_candidate_photo():
     with open(photo_path, "wb") as photo_file:
         photo_file.write(image_bytes)
 
-    conn = sqlite3.connect("database/exam.db")
+    conn = db_connect()
     cursor = conn.cursor()
 
     try:
@@ -382,7 +602,7 @@ def login():
     if entered_captcha != stored_captcha:
         return "Invalid CAPTCHA!"
 
-    conn = sqlite3.connect("database/exam.db")
+    conn = db_connect()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -450,18 +670,25 @@ def welcome():
 @app.route("/start_exam", methods=["POST"])
 def start_exam():
 
-    conn = sqlite3.connect("database/exam.db")
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    conn = db_connect()
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT INTO Session(candidate_id,start_time,status)
         VALUES(?,?,?)
-    """, ("C001", datetime.now(), "Started"))
+    """, (
+        session["candidate_id"],
+        datetime.now(),
+        "Started"
+    ))
 
     conn.commit()
     conn.close()
 
-    return "Exam Started Successfully!"
+    return redirect(url_for("exam"))
 
 
 # ---------------- PAUSE EXAM ----------------
@@ -469,14 +696,21 @@ def start_exam():
 @app.route("/pause_exam", methods=["POST"])
 def pause_exam():
 
-    conn = sqlite3.connect("database/exam.db")
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    session_id = get_latest_session_id(session["candidate_id"])
+    if session_id is None:
+        return "No active session found.", 400
+
+    conn = db_connect()
     cursor = conn.cursor()
 
     cursor.execute("""
         UPDATE Session
         SET status=?
-        WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """, ("Paused",))
+        WHERE session_id=?
+    """, ("Paused", session_id))
 
     conn.commit()
     conn.close()
@@ -489,14 +723,21 @@ def pause_exam():
 @app.route("/resume_exam", methods=["POST"])
 def resume_exam():
 
-    conn = sqlite3.connect("database/exam.db")
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    session_id = get_latest_session_id(session["candidate_id"])
+    if session_id is None:
+        return "No active session found.", 400
+
+    conn = db_connect()
     cursor = conn.cursor()
 
     cursor.execute("""
         UPDATE Session
         SET status=?
-        WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """, ("Resumed",))
+        WHERE session_id=?
+    """, ("Resumed", session_id))
 
     conn.commit()
     conn.close()
@@ -509,7 +750,14 @@ def resume_exam():
 @app.route("/end_exam", methods=["POST"])
 def end_exam():
 
-    conn = sqlite3.connect("database/exam.db")
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    session_id = get_latest_session_id(session["candidate_id"])
+    if session_id is None:
+        return "No active session found.", 400
+
+    conn = db_connect()
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -517,8 +765,8 @@ def end_exam():
         SET
             end_time=?,
             status=?
-        WHERE session_id=(SELECT MAX(session_id) FROM Session)
-    """, (datetime.now(), "Completed"))
+        WHERE session_id=?
+    """, (datetime.now(), "Completed", session_id))
 
     conn.commit()
     conn.close()
@@ -526,6 +774,51 @@ def end_exam():
     return "Exam Ended Successfully!"
 
 
+@app.route("/report")
+def report():
+
+    if "candidate_id" not in session or "candidate_email" not in session:
+        return redirect(url_for("login_page"))
+
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            session_id,
+            start_time,
+            end_time,
+            status
+        FROM Session
+        WHERE candidate_id=?
+        ORDER BY session_id DESC
+        LIMIT 1
+    """, (session["candidate_id"],))
+
+    session_data = cursor.fetchone()
+    conn.close()
+
+    metrics = get_report_metrics(session["candidate_email"])
+
+    duration = ""
+    if session_data:
+        duration = format_duration(session_data["start_time"], session_data["end_time"])
+
+    return render_template(
+        "report.html",
+        candidate_id=session.get("candidate_id"),
+        candidate_name=session.get("candidate_name"),
+        candidate_email=session.get("candidate_email"),
+        session_data=session_data,
+        duration=duration,
+        face_absence_count=metrics["face_absence_count"],
+        browser_focus_loss_count=metrics["browser_focus_loss_count"],
+        multiple_face_count=metrics["multiple_face_count"],
+        total_suspicious_events=metrics["total_suspicious_events"],
+        final_integrity=metrics["final_integrity"],
+        overall_remark=metrics["overall_remark"],
+        event_timeline=metrics["event_timeline"]
+    )
 # ---------------- DASHBOARD ----------------
 
 @app.route("/dashboard")
@@ -540,41 +833,18 @@ def exam():
 
     if "candidate_id" not in session:
         return redirect(url_for("login_page"))
-    
 
-    table_name = (
-        session["candidate_email"]
-        .replace("@", "_")
-        .replace(".", "_")
-        .replace("-", "_")
+    email = session["candidate_email"]
+    append_exam_log(
+        email,
+        "Exam Started",
+        f"Initial Status\nFaces Detected : {face_count}\nMissing Time : 0 sec",
+        event_type="Exam Event",
+        penalty=0
     )
 
-    conn = sqlite3.connect("database/exam.db")
-    cursor = conn.cursor()
-
-    cursor.execute(f"""
-        INSERT INTO "{table_name}"
-        (
-            event,
-            remarks,
-            integrity
-        )
-        VALUES (?, ?, ?)
-    """,
-    (
-        "Exam Started",
-        f"""Initial Status
-
-    Faces Detected : {face_count}
-    Missing Time : 0 sec""",
-        100
-    ))
-
-    conn.commit()
-    conn.close()
-
     global current_candidate_email
-    current_candidate_email = session["candidate_email"]
+    current_candidate_email = email
 
     return render_template("exam.html")
 
@@ -585,10 +855,17 @@ face_cascade = cv2.CascadeClassifier(
 face_detected = True
 face_count = 0
 face_missing_start = None
+face_missing_active = False
+face_missing_penalty_given = False
 missing_seconds = 0
 
-last_face_count = 0
-last_missing_state = False
+multiple_face_start = None
+multiple_face_active = False
+multiple_face_penalty_given = False
+
+browser_focus_lost_start = None
+browser_focus_lost_active = False
+browser_focus_penalty_given = False
 
 current_candidate_email = None
 
@@ -618,73 +895,93 @@ def generate_frames():
 
         global face_count
         global face_missing_start
+        global face_missing_active
+        global face_missing_penalty_given
         global missing_seconds
 
-        global last_face_count
-        global last_missing_state
+        global multiple_face_start
+        global multiple_face_active
+        global multiple_face_penalty_given
 
         face_count = len(faces)
-
         email = current_candidate_email
 
         if email:
-
-            if face_count >= 2 and last_face_count < 2:
+            if face_count >= 2:
+                if not multiple_face_active:
+                    multiple_face_active = True
+                    multiple_face_start = time.time()
+                    multiple_face_penalty_given = False
+                    append_exam_log(
+                        email,
+                        f"Multiple faces detected ({face_count} faces)",
+                        remarks=f"{face_count} faces detected",
+                        event_type="Security Log"
+                    )
+                elif not multiple_face_penalty_given:
+                    active_seconds = int(time.time() - multiple_face_start)
+                    if active_seconds >= MULTIPLE_FACE_THRESHOLD:
+                        apply_penalty(
+                            email,
+                            "Multiple Faces Detected",
+                            MULTIPLE_FACE_PENALTY,
+                            event="Multiple Faces Penalty"
+                        )
+                        multiple_face_penalty_given = True
+            elif multiple_face_active:
                 append_exam_log(
                     email,
-                    f"Multiple Faces Detected ({face_count} Faces)"
+                    "Face count normal (1 face)",
+                    remarks="Multiple face event resolved",
+                    event_type="Security Log"
                 )
-
-            elif face_count == 1 and last_face_count >= 2:
-                append_exam_log(
-                    email,
-                    "Face Count Normal (1 Face)"
-                )
+                multiple_face_active = False
+                multiple_face_start = None
+                multiple_face_penalty_given = False
 
         last_face_count = face_count
 
-
-
         if face_count == 0:
-
-            if face_missing_start is None:
-
+            if not face_missing_active:
+                face_missing_active = True
                 face_missing_start = time.time()
-
-                if email and not last_missing_state:
-                    append_exam_log(
-                        email,
-                        "Candidate Missing"
-                    )
-
-                last_missing_state = True
-
-            missing_seconds = int(
-                time.time() - face_missing_start
-            )
-
-        else:
-
-            if last_missing_state and email:
-
+                missing_seconds = 0
                 append_exam_log(
                     email,
-                    f"Candidate Returned (Missing {missing_seconds} sec)"
+                    "Candidate missing detected",
+                    remarks="Face missing detected",
+                    event_type="Security Log"
                 )
 
+            missing_seconds = int(time.time() - face_missing_start)
+
+            if email and not face_missing_penalty_given:
+                if missing_seconds >= FACE_MISSING_THRESHOLD:
+                    apply_penalty(
+                        email,
+                        "Candidate Missing",
+                        FACE_MISSING_PENALTY,
+                        event="Candidate Missing Penalty"
+                    )
+                    face_missing_penalty_given = True
+
+        else:
+            if face_missing_active:
+                append_exam_log(
+                    email,
+                    f"Candidate returned after {missing_seconds} sec",
+                    remarks=f"Face returned after {missing_seconds} sec",
+                    event_type="Security Log"
+                )
+            face_missing_active = False
             face_missing_start = None
             missing_seconds = 0
-            last_missing_state = False
+            face_missing_penalty_given = False
 
         global face_detected
-
-        if len(faces) > 0:
-            face_detected = True
-        else:
-            face_detected = False
+        face_detected = face_count > 0
 
         for (x, y, w, h) in faces:
-
             cv2.rectangle(
                 frame,
                 (x, y),
@@ -771,31 +1068,23 @@ def integrity():
     if "candidate_email" not in session:
         return {"integrity": 100}
 
-    table_name = (
-        session["candidate_email"]
-        .replace("@", "_")
-        .replace(".", "_")
-        .replace("-", "_")
-    )
-
-    conn = sqlite3.connect("database/exam.db")
+    email = session["candidate_email"]
+    conn = db_connect()
     cursor = conn.cursor()
+
+    ensure_candidate_log_table(cursor, email)
 
     cursor.execute(f"""
         SELECT integrity
-        FROM "{table_name}"
+        FROM "{sanitize_table_name(email)}"
         ORDER BY log_id DESC
         LIMIT 1
     """)
 
     row = cursor.fetchone()
-
     conn.close()
 
-    if row:
-        return {"integrity": row[0]}
-
-    return {"integrity": 100}
+    return {"integrity": row[0] if row else 100}
 
 
 @app.route("/browser_event", methods=["POST"])
@@ -804,14 +1093,21 @@ def browser_event():
     if "candidate_email" not in session:
         return {"status": "error"}
 
-    data = request.get_json()
-
+    data = request.get_json() or {}
     event = data.get("event")
+    if not event:
+        return {"status": "error", "message": "Missing event"}, 400
 
     append_exam_log(
         session["candidate_email"],
-        event
+        event,
+        event_type="Browser Event",
+        remarks=event,
+        penalty=0
     )
+
+    if event == "Browser Focus Regained":
+        process_browser_focus_event(session["candidate_email"], event)
 
     return {"status": "success"}
 

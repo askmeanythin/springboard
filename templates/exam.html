@@ -93,6 +93,10 @@
 
         </div>
 
+        <div class="camera-stats">
+            <p><b>Faces Detected :</b> <span id="faceCount">0</span></p>
+            <p id="timerRow" style="display:none;"><b>Missing Time :</b> <span id="missingTimer">0</span> sec</p>
+        </div>
 
     </div>
 
@@ -170,9 +174,9 @@
 
         </ul>
 
-        <button>
+        <button id="endExamBtn" onclick="endExam()">
 
-            Start Exam
+            End Exam
 
         </button>
 
@@ -318,6 +322,26 @@ updateIntegrity();
 setInterval(updateIntegrity,1000);
 
 </script>
+
+<script>
+
+async function endExam(){
+
+    const response = await fetch("/end_exam",{
+        method:"POST"
+    });
+
+    if(response.ok){
+
+        window.location.href="/report";
+
+    }
+
+}
+
+</script>
+
+
 
 </body>
 </html>

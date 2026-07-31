@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Integrity Report</title>
+
+<style>
+
+body{
+
+font-family:Arial,sans-serif;
+background:#f5f5f5;
+padding:40px;
+
+}
+
+.container{
+
+max-width:1000px;
+margin:auto;
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,.1);
+
+}
+
+h1{
+
+text-align:center;
+margin-bottom:30px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Exam Integrity Report</h1>
+
+    <div class="grid">
+        <section class="card">
+            <h2>Candidate Information</h2>
+            <p><strong>Candidate ID</strong><br>{{ candidate_id }}</p>
+            <p><strong>Candidate Name</strong><br>{{ candidate_name }}</p>
+            <p><strong>Email</strong><br>{{ candidate_email }}</p>
+        </section>
+
+        <section class="card">
+            <h2>Session Information</h2>
+            {% if session_data %}
+                <p><strong>Session ID</strong><br>{{ session_data[0] }}</p>
+                <p><strong>Start Time</strong><br>{{ session_data[1] }}</p>
+                <p><strong>End Time</strong><br>{{ session_data[2] }}</p>
+                <p><strong>Duration</strong><br>{{ duration }}</p>
+                <p><strong>Status</strong><br>{{ session_data[3] }}</p>
+            {% else %}
+                <p>No session information found.</p>
+            {% endif %}
+        </section>
+
+        <section class="card">
+            <h2>Monitoring Statistics</h2>
+            <p><strong>Face Absence Count</strong><br>{{ face_absence_count }}</p>
+            <p><strong>Browser Focus Loss Count</strong><br>{{ browser_focus_loss_count }}</p>
+            <p><strong>Multiple Face Count</strong><br>{{ multiple_face_count }}</p>
+            <p><strong>Total Suspicious Events</strong><br>{{ total_suspicious_events }}</p>
+        </section>
+
+        <section class="card highlight">
+            <h2>Integrity Summary</h2>
+            <p><strong>Final Integrity Score</strong><br>{{ final_integrity }}</p>
+            <p><strong>Overall Remark</strong><br>{{ overall_remark }}</p>
+        </section>
+    </div>
+
+    <section class="card timeline">
+        <h2>Event Timeline</h2>
+        {% if event_timeline %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Event</th>
+                        <th>Penalty</th>
+                        <th>Remarks</th>
+                        <th>Integrity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in event_timeline %}
+                        <tr>
+                            <td>{{ event.timestamp }}</td>
+                            <td>{{ event.event }}</td>
+                            <td>{{ event.penalty }}</td>
+                            <td>{{ event.remarks }}</td>
+                            <td>{{ event.integrity }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No event timeline available.</p>
+        {% endif %}
+    </section>
+</div>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f2f4f8;
+        margin: 0;
+        padding: 30px;
+        color: #1a2330;
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: auto;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        color: #1d2c4d;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+
+    .card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 22px;
+        box-shadow: 0 18px 40px rgba(34, 70, 140, 0.06);
+    }
+
+    .card.highlight {
+        border: 1px solid #526dff;
+        background: #eef2ff;
+    }
+
+    .card h2 {
+        margin-top: 0;
+        margin-bottom: 18px;
+        font-size: 20px;
+        color: #21325f;
+    }
+
+    .card p {
+        margin: 12px 0;
+        line-height: 1.5;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+
+    th,
+    td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e6ebf2;
+        text-align: left;
+    }
+
+    th {
+        background: #f6f8ff;
+        font-weight: 600;
+    }
+
+    tbody tr:hover {
+        background: #f7f8fc;
+    }
+</style>
+
+</body>
+
+</html>
