@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for, Response
+from flask import Flask, render_template, request, session, redirect, url_for, Response, send_from_directory, stream_with_context
 import sqlite3
 import cv2
 import os
@@ -7,12 +7,17 @@ import random
 import string
 import base64
 import time
+from pathlib import Path
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 LOG_FOLDER = "logs"
+SCREENSHOT_FOLDER = "screenshots"
 DB_PATH = "database/exam.db"
+DEFAULT_EXAM_NAME = "Default Exam"
 
 os.makedirs(LOG_FOLDER, exist_ok=True)
+os.makedirs(SCREENSHOT_FOLDER, exist_ok=True)
 
 FACE_MISSING_THRESHOLD = 5
 MULTIPLE_FACE_THRESHOLD = 5
@@ -25,83 +30,451 @@ BROWSER_FOCUS_PENALTY = 5
 def db_connect():
     connection = sqlite3.connect(
         DB_PATH,
+        timeout=10,
         detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
     )
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA busy_timeout=10000")
     return connection
 
 
-def sanitize_table_name(email):
-    return (
-        email
-        .replace("@", "_")
-        .replace(".", "_")
-        .replace("-", "_")
-    )
-
-
-def ensure_candidate_log_table(cursor, email):
-    table_name = sanitize_table_name(email)
-
-    cursor.execute(f"""
-        CREATE TABLE IF NOT EXISTS "{table_name}"
-        (
-            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            event TEXT NOT NULL,
-            remarks TEXT,
-            integrity INTEGER NOT NULL,
-            penalty INTEGER NOT NULL DEFAULT 0,
-            event_type TEXT NOT NULL DEFAULT 'Exam Event'
-        )
-    """)
-
-    cursor.execute(f"PRAGMA table_info('{table_name}')")
-    columns = [row[1] for row in cursor.fetchall()]
-
-    if "penalty" not in columns:
-        cursor.execute(
-            f"ALTER TABLE \"{table_name}\" ADD COLUMN penalty INTEGER NOT NULL DEFAULT 0"
-        )
-
-    if "event_type" not in columns:
-        cursor.execute(
-            f"ALTER TABLE \"{table_name}\" ADD COLUMN event_type TEXT NOT NULL DEFAULT 'Exam Event'"
-        )
-
-
-def get_latest_integrity(cursor, email):
-    table_name = sanitize_table_name(email)
-
-    cursor.execute(f'''
-        SELECT integrity
-        FROM "{table_name}"
-        ORDER BY log_id DESC
-        LIMIT 1
-    ''')
-
-    row = cursor.fetchone()
-
-    return row[0] if row else 100
-
-
-def get_latest_session_id(candidate_id):
+def ensure_production_schema():
     conn = db_connect()
     cursor = conn.cursor()
 
+    cursor.execute("PRAGMA table_info('Candidate')")
+    candidate_columns = {row[1] for row in cursor.fetchall()}
+    if "password_hash" not in candidate_columns:
+        cursor.execute("ALTER TABLE Candidate ADD COLUMN password_hash TEXT")
+
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Exam
+        (
+            exam_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            exam_name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            status TEXT NOT NULL DEFAULT 'Active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS ExamSession
+        (
+            session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            candidate_id INTEGER NOT NULL,
+            exam_id INTEGER NOT NULL,
+            start_time TIMESTAMP,
+            end_time TIMESTAMP,
+            status TEXT NOT NULL DEFAULT 'Started',
+            initial_integrity INTEGER NOT NULL DEFAULT 100,
+            current_integrity INTEGER NOT NULL DEFAULT 100,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(candidate_id) REFERENCES Candidate(candidate_id) ON DELETE CASCADE,
+            FOREIGN KEY(exam_id) REFERENCES Exam(exam_id) ON DELETE RESTRICT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS MonitoringEvent
+        (
+            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            event_subtype TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'Info',
+            event_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            remarks TEXT,
+            face_count INTEGER,
+            browser_state TEXT,
+            source TEXT NOT NULL DEFAULT 'cv',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(session_id) REFERENCES ExamSession(session_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Penalty
+        (
+            penalty_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL,
+            session_id INTEGER NOT NULL,
+            penalty_points INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(event_id) REFERENCES MonitoringEvent(event_id) ON DELETE CASCADE,
+            FOREIGN KEY(session_id) REFERENCES ExamSession(session_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Screenshot
+        (
+            screenshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id INTEGER NOT NULL,
+            session_id INTEGER NOT NULL,
+            screenshot_path TEXT NOT NULL,
+            captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            image_type TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(event_id) REFERENCES MonitoringEvent(event_id) ON DELETE CASCADE,
+            FOREIGN KEY(session_id) REFERENCES ExamSession(session_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS IntegrityHistory
+        (
+            integrity_history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            event_id INTEGER,
+            integrity_before INTEGER NOT NULL,
+            integrity_after INTEGER NOT NULL,
+            delta INTEGER NOT NULL,
+            recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(session_id) REFERENCES ExamSession(session_id) ON DELETE CASCADE,
+            FOREIGN KEY(event_id) REFERENCES MonitoringEvent(event_id) ON DELETE SET NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS BrowserEvent
+        (
+            browser_event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            event_type TEXT NOT NULL,
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ended_at TIMESTAMP,
+            duration_seconds INTEGER,
+            remarks TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(session_id) REFERENCES ExamSession(session_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Report
+        (
+            report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL UNIQUE,
+            generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            summary_json TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(session_id) REFERENCES ExamSession(session_id) ON DELETE CASCADE
+        )
+    """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_examsession_candidate_status ON ExamSession(candidate_id, status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_monitoringevent_session_timestamp ON MonitoringEvent(session_id, event_timestamp)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_monitoringevent_type ON MonitoringEvent(event_type, event_subtype)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_penalty_session_applied ON Penalty(session_id, applied_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_screenshot_session_captured ON Screenshot(session_id, captured_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_integrityhistory_session_recorded ON IntegrityHistory(session_id, recorded_at)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_browserevent_session_started ON BrowserEvent(session_id, started_at)")
+
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO Exam (exam_name, description, status)
+        VALUES (?, ?, 'Active')
+        """,
+        (DEFAULT_EXAM_NAME, "Default exam used by the existing portal flow."),
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_default_exam_id(cursor):
+    cursor.execute("SELECT exam_id FROM Exam ORDER BY exam_id ASC LIMIT 1")
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def get_active_exam_session_id(candidate_id=None):
+    current_session_id = session.get("exam_session_id")
+    if current_session_id:
+        if get_exam_session_record(current_session_id) is not None:
+            return current_session_id
+        session.pop("exam_session_id", None)
+
+    if candidate_id is None:
+        candidate_id = session.get("candidate_id")
+
+    if candidate_id is None:
+        return None
+
+    conn = db_connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
         SELECT session_id
-        FROM Session
+        FROM ExamSession
         WHERE candidate_id=?
         ORDER BY session_id DESC
         LIMIT 1
-    """, (candidate_id,))
-
+        """,
+        (candidate_id,)
+    )
     row = cursor.fetchone()
     conn.close()
+    if row is None:
+        return None
 
-    return row[0] if row else None
+    session["exam_session_id"] = row[0]
+    return row[0]
+
+
+def get_exam_session_record(session_id):
+    if session_id is None:
+        return None
+
+    conn = db_connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            session_id,
+            candidate_id,
+            exam_id,
+            start_time,
+            end_time,
+            status,
+            initial_integrity,
+            current_integrity
+        FROM ExamSession
+        WHERE session_id=?
+        """,
+        (session_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+
+def save_violation_screenshot(frame, session_id, violation_type):
+    if frame is None or session_id is None:
+        return None
+
+    safe_violation = violation_type.lower().replace(" ", "_")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    relative_folder = f"session_{session_id}"
+    folder_path = os.path.join(SCREENSHOT_FOLDER, relative_folder)
+    os.makedirs(folder_path, exist_ok=True)
+
+    filename = f"{safe_violation}_{timestamp}.jpg"
+    file_path = os.path.join(folder_path, filename)
+
+    if cv2.imwrite(file_path, frame):
+        return f"{relative_folder}/{filename}"
+
+    return None
+
+
+def record_monitoring_violation(session_id, event_type, event_subtype, penalty_points=0, remarks=None, frame=None, face_count_value=None, browser_state=None, source="cv", severity="Warning", conn=None, cursor=None):
+    if session_id is None:
+        return None
+
+    if get_exam_session_record(session_id) is None:
+        return None
+
+    owns_connection = conn is None or cursor is None
+    if owns_connection:
+        conn = db_connect()
+        cursor = conn.cursor()
+
+    try:
+        if owns_connection:
+            conn.execute("BEGIN")
+
+        cursor.execute(
+            "SELECT current_integrity FROM ExamSession WHERE session_id=?",
+            (session_id,)
+        )
+        session_row = cursor.fetchone()
+        integrity_before = session_row[0] if session_row else 100
+        integrity_after = max(0, integrity_before - penalty_points)
+
+        cursor.execute(
+            """
+            INSERT INTO MonitoringEvent
+            (
+                session_id,
+                event_type,
+                event_subtype,
+                severity,
+                remarks,
+                face_count,
+                browser_state,
+                source
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                event_type,
+                event_subtype,
+                severity,
+                remarks,
+                face_count_value,
+                browser_state,
+                source,
+            )
+        )
+        event_id = cursor.lastrowid
+
+        screenshot_path = None
+        if frame is not None:
+            screenshot_path = save_violation_screenshot(frame, session_id, event_subtype)
+            if screenshot_path:
+                cursor.execute(
+                    """
+                    INSERT INTO Screenshot
+                    (
+                        event_id,
+                        session_id,
+                        screenshot_path,
+                        image_type
+                    )
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (event_id, session_id, screenshot_path, event_subtype)
+                )
+
+        if penalty_points:
+            cursor.execute(
+                """
+                INSERT INTO Penalty
+                (
+                    event_id,
+                    session_id,
+                    penalty_points,
+                    reason
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (event_id, session_id, penalty_points, event_subtype)
+            )
+
+        cursor.execute(
+            """
+            INSERT INTO IntegrityHistory
+            (
+                session_id,
+                event_id,
+                integrity_before,
+                integrity_after,
+                delta
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (session_id, event_id, integrity_before, integrity_after, -penalty_points)
+        )
+
+        cursor.execute(
+            """
+            UPDATE ExamSession
+            SET current_integrity=?, updated_at=CURRENT_TIMESTAMP
+            WHERE session_id=?
+            """,
+            (integrity_after, session_id)
+        )
+
+        if owns_connection:
+            conn.commit()
+        return {
+            "event_id": event_id,
+            "integrity_before": integrity_before,
+            "integrity_after": integrity_after,
+            "screenshot_path": screenshot_path,
+        }
+    except Exception:
+        if owns_connection:
+            conn.rollback()
+        raise
+    finally:
+        if owns_connection:
+            conn.close()
+
+
+def get_session_violation_rows(session_id):
+    if session_id is None:
+        return []
+
+    conn = db_connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT
+            me.event_id,
+            me.event_timestamp,
+            me.event_type,
+            me.event_subtype,
+            me.remarks,
+            me.face_count,
+            me.browser_state,
+            COALESCE(p.penalty_points, 0) AS penalty_points,
+            ih.integrity_after,
+            s.screenshot_path
+        FROM MonitoringEvent me
+        LEFT JOIN Penalty p ON p.event_id = me.event_id
+        LEFT JOIN IntegrityHistory ih ON ih.event_id = me.event_id
+        LEFT JOIN Screenshot s ON s.event_id = me.event_id
+        WHERE me.session_id=?
+        ORDER BY me.event_timestamp ASC, me.event_id ASC
+        """,
+        (session_id,)
+    )
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_session_summary(session_id):
+    summary = {
+        "session": None,
+        "violations": [],
+        "total_penalties": 0,
+        "total_screenshots": 0,
+        "final_integrity": 100,
+        "duration": "",
+    }
+
+    session_row = get_exam_session_record(session_id)
+    if session_row is not None:
+        summary["session"] = session_row
+        summary["final_integrity"] = session_row[7] if session_row[7] is not None else 100
+        summary["duration"] = format_duration(session_row[3], session_row[4])
+
+    violations = get_session_violation_rows(session_id)
+    summary["violations"] = violations
+    summary["total_penalties"] = sum(item["penalty_points"] for item in violations)
+    summary["total_screenshots"] = sum(1 for item in violations if item.get("screenshot_path"))
+
+    return summary
+
+
+def get_latest_integrity(cursor, email):
+    session_id = get_active_exam_session_id()
+    if session_id is not None:
+        cursor.execute(
+            """
+            SELECT current_integrity
+            FROM ExamSession
+            WHERE session_id=?
+            """,
+            (session_id,)
+        )
+        row = cursor.fetchone()
+        if row is not None:
+            return row[0]
+
+    return 100
 
 
 def format_duration(start_time, end_time=None):
@@ -129,121 +502,113 @@ def parse_timestamp(value):
 
 
 def get_last_penalty_after(cursor, email, log_id, reason):
-    table_name = sanitize_table_name(email)
-    cursor.execute(f"""
+    session_id = get_active_exam_session_id()
+    if session_id is None:
+        return False
+
+    cursor.execute(
+        """
         SELECT COUNT(*)
-        FROM "{table_name}"
-        WHERE event_type='Penalty'
-        AND remarks LIKE ?
-        AND log_id > ?
-    """, (f"{reason}%", log_id))
+        FROM MonitoringEvent me
+        INNER JOIN Penalty p ON p.event_id = me.event_id
+        WHERE me.session_id=?
+        AND p.reason LIKE ?
+        AND me.event_id > ?
+        """,
+        (session_id, f"{reason}%", log_id)
+    )
     return cursor.fetchone()[0] > 0
 
 
-def process_browser_focus_event(email, event):
-    append_exam_log(
-        email,
-        event,
-        remarks=event,
-        event_type="Browser Event",
-        penalty=0
-    )
-
-    if event != "Browser Focus Regained":
-        return
-
-    conn = db_connect()
-    cursor = conn.cursor()
-    ensure_candidate_log_table(cursor, email)
-
-    table_name = sanitize_table_name(email)
-    cursor.execute(f"""
-        SELECT log_id, timestamp
-        FROM "{table_name}"
-        WHERE event_type='Browser Event'
-        AND event='Browser Focus Lost'
-        ORDER BY log_id DESC
-        LIMIT 1
-    """)
-    lost_row = cursor.fetchone()
-
-    if not lost_row:
-        conn.close()
-        return
-
-    lost_id = lost_row["log_id"]
-    lost_ts = parse_timestamp(lost_row["timestamp"])
-    if lost_ts is None:
-        conn.close()
-        return
-
-    if get_last_penalty_after(cursor, email, lost_id, "Browser Focus Lost"):
-        conn.close()
-        return
-
-    elapsed = int((datetime.now() - lost_ts).total_seconds())
-    if elapsed >= BROWSER_FOCUS_THRESHOLD:
-        apply_penalty(
-            email,
-            "Browser Focus Lost",
-            BROWSER_FOCUS_PENALTY,
-            event="Browser Focus Lost Penalty"
-        )
-
-    conn.close()
-
-
 def get_report_metrics(email):
-    table_name = sanitize_table_name(email)
     conn = db_connect()
     cursor = conn.cursor()
 
-    ensure_candidate_log_table(cursor, email)
+    session_id = get_active_exam_session_id()
+    if session_id is None:
+        return {
+            "face_absence_count": 0,
+            "browser_focus_loss_count": 0,
+            "multiple_face_count": 0,
+            "total_suspicious_events": 0,
+            "final_integrity": 100,
+            "overall_remark": "No session data available.",
+            "event_timeline": []
+        }
 
-    cursor.execute(f"""
+    cursor.execute(
+        """
         SELECT COUNT(*)
-        FROM "{table_name}"
-        WHERE penalty > 0
-        AND event_type = 'Penalty'
-        AND remarks LIKE 'Candidate Missing%'
-    """)
+        FROM MonitoringEvent me
+        INNER JOIN Penalty p ON p.event_id = me.event_id
+        WHERE me.session_id=? AND p.reason='Candidate Missing'
+        """,
+        (session_id,)
+    )
     face_absence_count = cursor.fetchone()[0]
 
-    cursor.execute(f"""
+    cursor.execute(
+        """
         SELECT COUNT(*)
-        FROM "{table_name}"
-        WHERE penalty > 0
-        AND event_type = 'Penalty'
-        AND remarks LIKE 'Browser Focus Lost%'
-    """)
+        FROM MonitoringEvent me
+        INNER JOIN Penalty p ON p.event_id = me.event_id
+        WHERE me.session_id=? AND p.reason='Browser Focus Lost'
+        """,
+        (session_id,)
+    )
     browser_focus_loss_count = cursor.fetchone()[0]
 
-    cursor.execute(f"""
+    cursor.execute(
+        """
         SELECT COUNT(*)
-        FROM "{table_name}"
-        WHERE penalty > 0
-        AND event_type = 'Penalty'
-        AND remarks LIKE 'Multiple Faces Detected%'
-    """)
+        FROM MonitoringEvent me
+        INNER JOIN Penalty p ON p.event_id = me.event_id
+        WHERE me.session_id=? AND p.reason='Multiple Faces Detected'
+        """,
+        (session_id,)
+    )
     multiple_face_count = cursor.fetchone()[0]
 
-    cursor.execute(f"""
+    cursor.execute(
+        """
         SELECT COUNT(*)
-        FROM "{table_name}"
-        WHERE penalty > 0
-    """)
+        FROM Penalty
+        WHERE session_id=?
+        """,
+        (session_id,)
+    )
     total_suspicious_events = cursor.fetchone()[0]
 
-    cursor.execute(f"""
-        SELECT log_id, timestamp, event, remarks, integrity, penalty, event_type
-        FROM "{table_name}"
-        ORDER BY log_id ASC
-    """)
+    cursor.execute(
+        """
+        SELECT
+            me.event_id,
+            me.event_timestamp AS timestamp,
+            me.event_subtype AS event,
+            me.remarks,
+            ih.integrity_after AS integrity,
+            COALESCE(p.penalty_points, 0) AS penalty,
+            me.event_type
+        FROM MonitoringEvent me
+        LEFT JOIN Penalty p ON p.event_id = me.event_id
+        LEFT JOIN IntegrityHistory ih ON ih.event_id = me.event_id
+        WHERE me.session_id=?
+        ORDER BY me.event_timestamp ASC, me.event_id ASC
+        """,
+        (session_id,)
+    )
     event_timeline = [dict(row) for row in cursor.fetchall()]
 
-    final_integrity = 100
-    if event_timeline:
-        final_integrity = event_timeline[-1]["integrity"]
+    cursor.execute(
+        """
+        SELECT current_integrity
+        FROM ExamSession
+        WHERE session_id=?
+        """,
+        (session_id,)
+    )
+    row = cursor.fetchone()
+    final_integrity = row[0] if row else 100
 
     conn.close()
 
@@ -268,74 +633,179 @@ def get_report_metrics(email):
 
 
 def append_exam_log(email, event, remarks=None, event_type="Exam Event", penalty=0):
-    table_name = sanitize_table_name(email)
-
     conn = db_connect()
     cursor = conn.cursor()
 
-    ensure_candidate_log_table(cursor, email)
+    session_id = get_active_exam_session_id()
+    if session_id is None:
+        conn.close()
+        return
 
-    integrity = get_latest_integrity(cursor, email)
+    if get_exam_session_record(session_id) is None:
+        session.pop("exam_session_id", None)
+        conn.close()
+        return
 
-    cursor.execute(f'''
-        INSERT INTO "{table_name}"
-        (
-            event,
-            remarks,
-            integrity,
-            penalty,
-            event_type
+    try:
+        conn.execute("BEGIN")
+        cursor.execute(
+            "SELECT current_integrity FROM ExamSession WHERE session_id=?",
+            (session_id,)
         )
-        VALUES (?, ?, ?, ?, ?)
-    ''',
-    (
-        event,
-        remarks,
-        integrity,
-        penalty,
-        event_type
-    ))
+        row = cursor.fetchone()
+        integrity = row[0] if row else 100
 
-    conn.commit()
-    conn.close()
+        cursor.execute(
+            """
+            INSERT INTO MonitoringEvent
+            (
+                session_id,
+                event_type,
+                event_subtype,
+                severity,
+                remarks,
+                source
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (session_id, event_type, event, "Info", remarks, "system")
+        )
+        event_id = cursor.lastrowid
+
+        if penalty:
+            cursor.execute(
+                """
+                INSERT INTO Penalty
+                (
+                    event_id,
+                    session_id,
+                    penalty_points,
+                    reason
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (event_id, session_id, penalty, event)
+            )
+
+            new_integrity = max(0, integrity - penalty)
+            cursor.execute(
+                """
+                INSERT INTO IntegrityHistory
+                (
+                    session_id,
+                    event_id,
+                    integrity_before,
+                    integrity_after,
+                    delta
+                )
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (session_id, event_id, integrity, new_integrity, -penalty)
+            )
+            cursor.execute(
+                """
+                UPDATE ExamSession
+                SET current_integrity=?, updated_at=CURRENT_TIMESTAMP
+                WHERE session_id=?
+                """,
+                (new_integrity, session_id)
+            )
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def apply_penalty(email, reason, penalty, event="Penalty"):
-    table_name = sanitize_table_name(email)
-
     conn = db_connect()
     cursor = conn.cursor()
 
-    ensure_candidate_log_table(cursor, email)
+    session_id = get_active_exam_session_id()
+    if session_id is None:
+        conn.close()
+        return
 
-    current_integrity = get_latest_integrity(cursor, email)
-    new_integrity = max(0, current_integrity - penalty)
+    if get_exam_session_record(session_id) is None:
+        session.pop("exam_session_id", None)
+        conn.close()
+        return
 
-    cursor.execute(f'''
-        INSERT INTO "{table_name}"
-        (
-            event,
-            remarks,
-            integrity,
-            penalty,
-            event_type
+    try:
+        conn.execute("BEGIN")
+        cursor.execute(
+            "SELECT current_integrity FROM ExamSession WHERE session_id=?",
+            (session_id,)
         )
-        VALUES (?, ?, ?, ?, ?)
-    ''',
-    (
-        event,
-        f"{reason} (-{penalty})",
-        new_integrity,
-        penalty,
-        "Penalty"
-    ))
+        row = cursor.fetchone()
+        current_integrity = row[0] if row else 100
+        new_integrity = max(0, current_integrity - penalty)
 
-    conn.commit()
-    conn.close()
+        cursor.execute(
+            """
+            INSERT INTO MonitoringEvent
+            (
+                session_id,
+                event_type,
+                event_subtype,
+                severity,
+                remarks,
+                source
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (session_id, "Penalty", reason, "Warning", f"{reason} (-{penalty})", "system")
+        )
+        event_id = cursor.lastrowid
+
+        cursor.execute(
+            """
+            INSERT INTO Penalty
+            (
+                event_id,
+                session_id,
+                penalty_points,
+                reason
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (event_id, session_id, penalty, reason)
+        )
+        cursor.execute(
+            """
+            INSERT INTO IntegrityHistory
+            (
+                session_id,
+                event_id,
+                integrity_before,
+                integrity_after,
+                delta
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (session_id, event_id, current_integrity, new_integrity, -penalty)
+        )
+        cursor.execute(
+            """
+            UPDATE ExamSession
+            SET current_integrity=?, updated_at=CURRENT_TIMESTAMP
+            WHERE session_id=?
+            """,
+            (new_integrity, session_id)
+        )
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def create_candidate_log_table(cursor, email):
-    ensure_candidate_log_table(cursor, email)
+    return None
 
 
 def write_user_log(email, message):
@@ -352,6 +822,7 @@ def write_user_log(email, message):
 
 app = Flask(__name__)
 app.secret_key = "exam-monitoring-secret-key"
+ensure_production_schema()
 
 @app.route("/")
 def home():
@@ -441,7 +912,8 @@ def register():
         "middle_name": middle_name,
         "last_name": last_name,
         "email": email,
-        "password": password
+        "password": password,
+        "password_hash": generate_password_hash(password)
     }
 
     session.pop("captcha", None)
@@ -497,6 +969,9 @@ def save_candidate_photo():
     cursor = conn.cursor()
 
     try:
+        conn.execute("BEGIN")
+
+        password_hash = candidate["password_hash"]
 
         cursor.execute("""
             INSERT INTO Candidate
@@ -506,57 +981,62 @@ def save_candidate_photo():
                 last_name,
                 email,
                 password,
+                password_hash,
                 photo_path
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             candidate["first_name"],
             candidate["middle_name"],
             candidate["last_name"],
             candidate["email"],
-            candidate["password"],
+            password_hash,
+            password_hash,
             photo_path
         ))
 
-        candidate_id = cursor.lastrowid
-        create_candidate_log_table(
-            cursor,
-            candidate["email"]
-        )
-
-        cursor.execute("""
-            INSERT INTO EventLog
-            (
-                candidate_id,
-                event_type,
-                remarks
-            )
-            VALUES (?, ?, ?)
-        """, (
-            candidate_id,
-            "Candidate Registered",
-            "Candidate account created and identity photo captured"
-        ))
-
         conn.commit()
-
-        write_user_log(
-            candidate["email"],
-            "Account Created\nPhoto Captured Successfully\nCandidate Registered Successfully"
-        )
 
     except sqlite3.IntegrityError:
 
         conn.rollback()
         conn.close()
 
+        if os.path.exists(photo_path):
+            try:
+                os.remove(photo_path)
+            except OSError:
+                pass
+
         return "Email already registered!"
+
+    except Exception:
+
+        conn.rollback()
+        conn.close()
+
+        if os.path.exists(photo_path):
+            try:
+                os.remove(photo_path)
+            except OSError:
+                pass
+
+        raise
 
     conn.close()
 
     session.pop("pending_candidate", None)
 
     return redirect(url_for("login_page"))
+
+
+@app.route("/screenshots/<path:screenshot_path>")
+def screenshot_file(screenshot_path):
+
+    if "candidate_id" not in session:
+        return redirect(url_for("login_page"))
+
+    return send_from_directory(SCREENSHOT_FOLDER, screenshot_path)
 
 
 
@@ -611,13 +1091,12 @@ def login():
             first_name,
             middle_name,
             last_name,
-            email
+            email,
+            password,
+            password_hash
         FROM Candidate
-        WHERE email=? AND password=?
-    """, (
-        email,
-        password
-    ))
+        WHERE email=?
+    """, (email,))
 
     user = cursor.fetchone()
 
@@ -630,6 +1109,29 @@ def login():
     first_name = user[1]
     middle_name = user[2]
     last_name = user[3]
+    stored_password = user[5]
+    stored_password_hash = user[6]
+
+    password_is_valid = False
+    if stored_password_hash:
+        password_is_valid = check_password_hash(stored_password_hash, password)
+    elif stored_password:
+        password_is_valid = stored_password == password
+
+    if not password_is_valid:
+        return "Invalid Email or Password!"
+
+    if not stored_password_hash or stored_password != stored_password_hash:
+        password_hash = generate_password_hash(password)
+        cursor.execute(
+            """
+            UPDATE Candidate
+            SET password=?, password_hash=?
+            WHERE candidate_id=?
+            """,
+            (password_hash, password_hash, candidate_id)
+        )
+        conn.commit()
 
     if middle_name:
         full_name = f"{first_name} {middle_name} {last_name}"
@@ -648,6 +1150,13 @@ def login():
     session.pop("login_captcha", None)
 
     return redirect(url_for("welcome"))
+
+
+@app.route("/logout", methods=["POST", "GET"])
+def logout():
+
+    session.clear()
+    return redirect(url_for("home"))
 
 
 # ---------------- WELCOME PAGE ----------------
@@ -676,17 +1185,39 @@ def start_exam():
     conn = db_connect()
     cursor = conn.cursor()
 
+    exam_id = get_default_exam_id(cursor)
+    if exam_id is None:
+        conn.close()
+        return "Exam setup is missing.", 500
+
+    conn.execute("BEGIN")
+
     cursor.execute("""
-        INSERT INTO Session(candidate_id,start_time,status)
-        VALUES(?,?,?)
+        INSERT INTO ExamSession
+        (
+            candidate_id,
+            exam_id,
+            start_time,
+            status,
+            initial_integrity,
+            current_integrity
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
     """, (
         session["candidate_id"],
+        exam_id,
         datetime.now(),
-        "Started"
+        "Started",
+        100,
+        100,
     ))
+
+    current_session_id = cursor.lastrowid
 
     conn.commit()
     conn.close()
+
+    session["exam_session_id"] = current_session_id
 
     return redirect(url_for("exam"))
 
@@ -699,15 +1230,17 @@ def pause_exam():
     if "candidate_id" not in session:
         return redirect(url_for("login_page"))
 
-    session_id = get_latest_session_id(session["candidate_id"])
+    session_id = get_active_exam_session_id()
     if session_id is None:
         return "No active session found.", 400
 
     conn = db_connect()
     cursor = conn.cursor()
 
+    conn.execute("BEGIN")
+
     cursor.execute("""
-        UPDATE Session
+        UPDATE ExamSession
         SET status=?
         WHERE session_id=?
     """, ("Paused", session_id))
@@ -726,15 +1259,17 @@ def resume_exam():
     if "candidate_id" not in session:
         return redirect(url_for("login_page"))
 
-    session_id = get_latest_session_id(session["candidate_id"])
+    session_id = get_active_exam_session_id()
     if session_id is None:
         return "No active session found.", 400
 
     conn = db_connect()
     cursor = conn.cursor()
 
+    conn.execute("BEGIN")
+
     cursor.execute("""
-        UPDATE Session
+        UPDATE ExamSession
         SET status=?
         WHERE session_id=?
     """, ("Resumed", session_id))
@@ -753,20 +1288,25 @@ def end_exam():
     if "candidate_id" not in session:
         return redirect(url_for("login_page"))
 
-    session_id = get_latest_session_id(session["candidate_id"])
+    session_id = get_active_exam_session_id()
     if session_id is None:
         return "No active session found.", 400
 
     conn = db_connect()
     cursor = conn.cursor()
 
+    conn.execute("BEGIN")
+
+    now = datetime.now()
+
     cursor.execute("""
-        UPDATE Session
+        UPDATE ExamSession
         SET
             end_time=?,
-            status=?
+            status=?,
+            updated_at=CURRENT_TIMESTAMP
         WHERE session_id=?
-    """, (datetime.now(), "Completed", session_id))
+    """, (now, "Completed", session_id))
 
     conn.commit()
     conn.close()
@@ -780,29 +1320,28 @@ def report():
     if "candidate_id" not in session or "candidate_email" not in session:
         return redirect(url_for("login_page"))
 
+    current_session_id = get_active_exam_session_id()
+
     conn = db_connect()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT
-            session_id,
-            start_time,
-            end_time,
-            status
-        FROM Session
-        WHERE candidate_id=?
-        ORDER BY session_id DESC
-        LIMIT 1
-    """, (session["candidate_id"],))
-
-    session_data = cursor.fetchone()
-    conn.close()
-
     metrics = get_report_metrics(session["candidate_email"])
+    normalized_summary = get_session_summary(current_session_id)
 
-    duration = ""
-    if session_data:
-        duration = format_duration(session_data["start_time"], session_data["end_time"])
+    if normalized_summary["session"] is not None:
+        session_row = normalized_summary["session"]
+        session_data = (
+            session_row[0],
+            session_row[3],
+            session_row[4],
+            session_row[5]
+        )
+        duration = normalized_summary["duration"]
+    else:
+        session_data = None
+        duration = ""
+
+    conn.close()
 
     return render_template(
         "report.html",
@@ -817,7 +1356,11 @@ def report():
         total_suspicious_events=metrics["total_suspicious_events"],
         final_integrity=metrics["final_integrity"],
         overall_remark=metrics["overall_remark"],
-        event_timeline=metrics["event_timeline"]
+        event_timeline=metrics["event_timeline"],
+        violations=normalized_summary["violations"],
+        total_penalties=normalized_summary["total_penalties"],
+        total_screenshots=normalized_summary["total_screenshots"],
+        normalized_integrity=normalized_summary["final_integrity"]
     )
 # ---------------- DASHBOARD ----------------
 
@@ -835,6 +1378,7 @@ def exam():
         return redirect(url_for("login_page"))
 
     email = session["candidate_email"]
+    session_id = get_active_exam_session_id()
     append_exam_log(
         email,
         "Exam Started",
@@ -843,10 +1387,26 @@ def exam():
         penalty=0
     )
 
+    if session_id is not None:
+        record_monitoring_violation(
+            session_id,
+            event_type="Exam",
+            event_subtype="Exam Started",
+            penalty_points=0,
+            remarks="Exam started",
+            source="system",
+            severity="Info"
+        )
+
     global current_candidate_email
     current_candidate_email = email
 
-    return render_template("exam.html")
+    return render_template(
+        "exam.html",
+        exam_session_id=session_id,
+        candidate_name=session.get("candidate_name"),
+        candidate_email=session.get("candidate_email")
+    )
 
 face_cascade = cv2.CascadeClassifier(
     "haarcascade_frontalface_default.xml"
@@ -905,6 +1465,7 @@ def generate_frames():
 
         face_count = len(faces)
         email = current_candidate_email
+        active_session_id = get_active_exam_session_id()
 
         if email:
             if face_count >= 2:
@@ -921,12 +1482,33 @@ def generate_frames():
                 elif not multiple_face_penalty_given:
                     active_seconds = int(time.time() - multiple_face_start)
                     if active_seconds >= MULTIPLE_FACE_THRESHOLD:
+                        violation_result = None
+                        if active_session_id is not None:
+                            violation_result = record_monitoring_violation(
+                                active_session_id,
+                                event_type="Face Monitoring",
+                                event_subtype="Multiple Faces Detected",
+                                penalty_points=MULTIPLE_FACE_PENALTY,
+                                remarks=f"{face_count} faces detected",
+                                frame=frame,
+                                face_count_value=face_count,
+                                source="cv",
+                                severity="Warning"
+                            )
                         apply_penalty(
                             email,
                             "Multiple Faces Detected",
                             MULTIPLE_FACE_PENALTY,
                             event="Multiple Faces Penalty"
                         )
+                        if violation_result is not None:
+                            append_exam_log(
+                                email,
+                                "Multiple faces penalty recorded",
+                                remarks=f"{face_count} faces detected",
+                                event_type="Security Log",
+                                penalty=MULTIPLE_FACE_PENALTY
+                            )
                         multiple_face_penalty_given = True
             elif multiple_face_active:
                 append_exam_log(
@@ -957,12 +1539,33 @@ def generate_frames():
 
             if email and not face_missing_penalty_given:
                 if missing_seconds >= FACE_MISSING_THRESHOLD:
+                    violation_result = None
+                    if active_session_id is not None:
+                        violation_result = record_monitoring_violation(
+                            active_session_id,
+                            event_type="Face Monitoring",
+                            event_subtype="Face Missing",
+                            penalty_points=FACE_MISSING_PENALTY,
+                            remarks="Face missing detected",
+                            frame=frame,
+                            face_count_value=0,
+                            source="cv",
+                            severity="Warning"
+                        )
                     apply_penalty(
                         email,
                         "Candidate Missing",
                         FACE_MISSING_PENALTY,
                         event="Candidate Missing Penalty"
                     )
+                    if violation_result is not None:
+                        append_exam_log(
+                            email,
+                            "Face missing penalty recorded",
+                            remarks="Face missing detected",
+                            event_type="Security Log",
+                            penalty=FACE_MISSING_PENALTY
+                        )
                     face_missing_penalty_given = True
 
         else:
@@ -1042,16 +1645,30 @@ def generate_frames():
 @app.route("/video_feed")
 def video_feed():
 
+    requested_session_id = request.args.get("session_id", type=int)
+    if requested_session_id is not None:
+        session["exam_session_id"] = requested_session_id
+
     return Response(
-        generate_frames(),
+        stream_with_context(generate_frames()),
         mimetype="multipart/x-mixed-replace; boundary=frame"
     )
 
 @app.route("/monitor")
 def monitor():
 
+    session_id = request.args.get("session_id", type=int) or get_active_exam_session_id()
+    if session_id is None:
+        return {"face_count": face_count}
+
+    normalized_summary = get_session_summary(session_id)
+    latest_face_count = face_count
+    if normalized_summary["violations"]:
+        latest_face_count = normalized_summary["violations"][-1].get("face_count") or face_count
+
     return {
-        "face_count": face_count
+        "face_count": latest_face_count,
+        "session_id": session_id
     }
 
 
@@ -1065,49 +1682,93 @@ def face_status():
 @app.route("/integrity")
 def integrity():
 
-    if "candidate_email" not in session:
-        return {"integrity": 100}
+    session_id = request.args.get("session_id", type=int) or get_active_exam_session_id()
+    if session_id is not None:
+        row = get_exam_session_record(session_id)
+        if row is not None:
+            return {"integrity": row[7], "session_id": session_id}
 
-    email = session["candidate_email"]
-    conn = db_connect()
-    cursor = conn.cursor()
-
-    ensure_candidate_log_table(cursor, email)
-
-    cursor.execute(f"""
-        SELECT integrity
-        FROM "{sanitize_table_name(email)}"
-        ORDER BY log_id DESC
-        LIMIT 1
-    """)
-
-    row = cursor.fetchone()
-    conn.close()
-
-    return {"integrity": row[0] if row else 100}
+    return {"integrity": 100}
 
 
 @app.route("/browser_event", methods=["POST"])
 def browser_event():
 
-    if "candidate_email" not in session:
+    data = request.get_json() or {}
+    session_id = request.args.get("session_id", type=int) or data.get("session_id") or get_active_exam_session_id()
+    if session_id is None:
         return {"status": "error"}
 
-    data = request.get_json() or {}
     event = data.get("event")
     if not event:
         return {"status": "error", "message": "Missing event"}, 400
 
-    append_exam_log(
-        session["candidate_email"],
-        event,
-        event_type="Browser Event",
-        remarks=event,
-        penalty=0
-    )
+    conn = db_connect()
+    cursor = conn.cursor()
 
-    if event == "Browser Focus Regained":
-        process_browser_focus_event(session["candidate_email"], event)
+    try:
+        conn.execute("BEGIN")
+
+        if event == "Browser Focus Lost":
+            cursor.execute(
+                """
+                INSERT INTO BrowserEvent
+                (
+                    session_id,
+                    event_type,
+                    started_at,
+                    remarks
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (session_id, event, datetime.now(), event)
+            )
+        elif event == "Browser Focus Regained":
+            cursor.execute(
+                """
+                SELECT browser_event_id, started_at
+                FROM BrowserEvent
+                WHERE session_id=? AND event_type='Browser Focus Lost' AND ended_at IS NULL
+                ORDER BY browser_event_id DESC
+                LIMIT 1
+                """,
+                (session_id,)
+            )
+            last_lost = cursor.fetchone()
+            if last_lost:
+                started_at = parse_timestamp(last_lost[1])
+                duration_seconds = 0
+                if started_at is not None:
+                    duration_seconds = int((datetime.now() - started_at).total_seconds())
+
+                cursor.execute(
+                    """
+                    UPDATE BrowserEvent
+                    SET ended_at=?, duration_seconds=?, remarks=?
+                    WHERE browser_event_id=?
+                    """,
+                    (datetime.now(), duration_seconds, event, last_lost[0])
+                )
+
+                if duration_seconds >= BROWSER_FOCUS_THRESHOLD:
+                    record_monitoring_violation(
+                        session_id,
+                        event_type="Browser Monitoring",
+                        event_subtype="Browser Focus Lost",
+                        penalty_points=BROWSER_FOCUS_PENALTY,
+                        remarks="Browser focus lost for too long",
+                        source="browser",
+                        severity="Warning",
+                        conn=conn,
+                        cursor=cursor
+                    )
+
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
     return {"status": "success"}
 

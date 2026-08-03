@@ -77,10 +77,61 @@ margin-bottom:30px;
 
         <section class="card highlight">
             <h2>Integrity Summary</h2>
-            <p><strong>Final Integrity Score</strong><br>{{ final_integrity }}</p>
+            <p><strong>Final Integrity Score</strong><br>{{ normalized_integrity if normalized_integrity is not none else final_integrity }}</p>
             <p><strong>Overall Remark</strong><br>{{ overall_remark }}</p>
+            <p><strong>Total Penalties</strong><br>{{ total_penalties or 0 }}</p>
+            <p><strong>Total Screenshots</strong><br>{{ total_screenshots or 0 }}</p>
         </section>
     </div>
+
+    <section class="card timeline">
+        <h2>Violation Evidence</h2>
+        {% if violations %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Violation</th>
+                        <th>Penalty</th>
+                        <th>Integrity After</th>
+                        <th>Remarks</th>
+                        <th>Screenshot</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for violation in violations %}
+                        <tr>
+                            <td>{{ violation.event_timestamp }}</td>
+                            <td>
+                                {{ violation.event_subtype }}
+                                {% if violation.face_count is not none %}
+                                    <br><small>Faces: {{ violation.face_count }}</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ violation.penalty_points }}</td>
+                            <td>{{ violation.integrity_after }}</td>
+                            <td>{{ violation.remarks or '' }}</td>
+                            <td>
+                                {% if violation.screenshot_path %}
+                                    <a href="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}" target="_blank" rel="noopener noreferrer">
+                                        <img
+                                            src="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}"
+                                            alt="Violation screenshot"
+                                            style="width: 120px; height: auto; border-radius: 8px; border: 1px solid #d9e2ec;"
+                                        >
+                                    </a>
+                                {% else %}
+                                    <span>No screenshot</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No normalized violation evidence available.</p>
+        {% endif %}
+    </section>
 
     <section class="card timeline">
         <h2>Event Timeline</h2>

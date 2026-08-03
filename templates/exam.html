@@ -77,6 +77,10 @@
 
 <body>
 
+<script>
+    const examSessionId = {{ exam_session_id | tojson }};
+</script>
+
 <div class="container">
 
     <div class="camera">
@@ -86,7 +90,7 @@
         <div class="camera-box">
 
             <img
-                src="{{ url_for('video_feed') }}"
+                src="{{ url_for('video_feed') }}?session_id={{ exam_session_id }}"
                 width="100%"
                 height="100%"
             >
@@ -207,7 +211,7 @@ let missingSeconds = 0;
 
 setInterval(async function(){
 
-    const response = await fetch("/monitor");
+    const response = await fetch(`/monitor?session_id=${examSessionId}`);
 
     const data = await response.json();
 
@@ -253,12 +257,14 @@ document.addEventListener("visibilitychange", function () {
             new Date().toLocaleTimeString();
 
         fetch("/browser_event", {
+            
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                event: "Browser Focus Lost"
+                event: "Browser Focus Lost",
+                session_id: examSessionId
             })
         });
 
@@ -272,7 +278,8 @@ document.addEventListener("visibilitychange", function () {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                event: "Browser Focus Regained"
+                event: "Browser Focus Regained",
+                session_id: examSessionId
             })
         });
 
@@ -286,7 +293,7 @@ document.addEventListener("visibilitychange", function () {
 
 async function updateIntegrity(){
 
-    const response = await fetch("/integrity");
+    const response = await fetch(`/integrity?session_id=${examSessionId}`);
 
     const data = await response.json();
 
@@ -327,7 +334,7 @@ setInterval(updateIntegrity,1000);
 
 async function endExam(){
 
-    const response = await fetch("/end_exam",{
+    const response = await fetch(`/end_exam?session_id=${examSessionId}`,{
         method:"POST"
     });
 
