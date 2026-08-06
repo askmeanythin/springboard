@@ -49,6 +49,18 @@ def ensure_production_schema():
     if "password_hash" not in candidate_columns:
         cursor.execute("ALTER TABLE Candidate ADD COLUMN password_hash TEXT")
 
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Admin
+        (
+            admin_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS Exam
         (
@@ -184,6 +196,17 @@ def ensure_production_schema():
         VALUES (?, ?, 'Active')
         """,
         (DEFAULT_EXAM_NAME, "Default exam used by the existing portal flow."),
+    )
+
+    cursor.execute(
+        """
+            INSERT OR IGNORE INTO Admin (email, password_hash)
+            VALUES (?, ?)
+        """,
+        (
+            "admin@gmail.com",
+            generate_password_hash("admin")
+        )
     )
 
     conn.commit()
@@ -1018,10 +1041,6 @@ def screenshot_file(screenshot_path):
 
     return send_from_directory(SCREENSHOT_FOLDER, screenshot_path)
 
-
-
-# ---------------- LOGIN PAGE ----------------
-
 # ---------------- LOGIN PAGE ----------------
 
 @app.route("/login")
@@ -1064,6 +1083,34 @@ def login():
 
     conn = db_connect()
     cursor = conn.cursor()
+
+# ---------- Check Admin First ----------
+
+    cursor.execute("""
+        SELECT
+            admin_id,
+            email,
+            password_hash
+        FROM Admin
+        WHERE email=?
+    """, (email,))
+
+    admin = cursor.fetchone()
+
+    if admin is not None:
+
+        if check_password_hash(admin[2], password):
+
+            session.clear()
+            session["admin_id"] = admin[0]
+            session["admin_email"] = admin[1]
+
+            conn.close()
+            session.pop("login_captcha", None)
+
+            return redirect(url_for("admin_dashboard"))
+
+    # ---------- Candidate Login ----------
 
     cursor.execute("""
         SELECT
@@ -1342,6 +1389,39 @@ def report():
         normalized_integrity=normalized_summary["final_integrity"]
     )
 # ---------------- DASHBOARD ----------------
+@app.route("/admin/dashboard")
+def admin_dashboard():
+
+    if "admin_id" not in session:
+        return redirect(url_for("login_page"))
+
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            c.candidate_id,
+            c.first_name,
+            c.middle_name,
+            c.last_name,
+            c.email,
+            COUNT(es.session_id) AS total_tests
+        FROM Candidate c
+        LEFT JOIN ExamSession es
+            ON c.candidate_id = es.candidate_id
+        GROUP BY c.candidate_id
+        ORDER BY c.email
+    """)
+
+    users = cursor.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "admin_dashboard.html",
+        users=users
+    )
+
 
 @app.route("/dashboard")
 def dashboard():
