@@ -22,8 +22,8 @@ os.makedirs(SCREENSHOT_FOLDER, exist_ok=True)
 FACE_MISSING_THRESHOLD = 5
 MULTIPLE_FACE_THRESHOLD = 5
 BROWSER_FOCUS_THRESHOLD = 3
-FACE_MISSING_PENALTY = 10
-MULTIPLE_FACE_PENALTY = 5
+FACE_MISSING_PENALTY = 25
+MULTIPLE_FACE_PENALTY = 15
 BROWSER_FOCUS_PENALTY = 5
 
 
@@ -426,6 +426,7 @@ def get_session_violation_rows(session_id):
         LEFT JOIN IntegrityHistory ih ON ih.event_id = me.event_id
         LEFT JOIN Screenshot s ON s.event_id = me.event_id
         WHERE me.session_id=?
+        AND COALESCE(p.penalty_points, 0) > 0
         ORDER BY me.event_timestamp ASC, me.event_id ASC
         """,
         (session_id,)
@@ -1495,19 +1496,13 @@ def generate_frames():
                                 source="cv",
                                 severity="Warning"
                             )
-                        apply_penalty(
-                            email,
-                            "Multiple Faces Detected",
-                            MULTIPLE_FACE_PENALTY,
-                            event="Multiple Faces Penalty"
-                        )
                         if violation_result is not None:
                             append_exam_log(
                                 email,
                                 "Multiple faces penalty recorded",
                                 remarks=f"{face_count} faces detected",
                                 event_type="Security Log",
-                                penalty=MULTIPLE_FACE_PENALTY
+                                penalty=0
                             )
                         multiple_face_penalty_given = True
             elif multiple_face_active:
@@ -1552,19 +1547,13 @@ def generate_frames():
                             source="cv",
                             severity="Warning"
                         )
-                    apply_penalty(
-                        email,
-                        "Candidate Missing",
-                        FACE_MISSING_PENALTY,
-                        event="Candidate Missing Penalty"
-                    )
                     if violation_result is not None:
                         append_exam_log(
                             email,
                             "Face missing penalty recorded",
                             remarks="Face missing detected",
                             event_type="Security Log",
-                            penalty=FACE_MISSING_PENALTY
+                            penalty=0
                         )
                     face_missing_penalty_given = True
 
