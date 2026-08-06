@@ -132,36 +132,6 @@ margin-bottom:30px;
             <p>No normalized violation evidence available.</p>
         {% endif %}
     </section>
-
-    <section class="card timeline">
-        <h2>Event Timeline</h2>
-        {% if event_timeline %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Event</th>
-                        <th>Penalty</th>
-                        <th>Remarks</th>
-                        <th>Integrity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for event in event_timeline %}
-                        <tr>
-                            <td>{{ event.timestamp }}</td>
-                            <td>{{ event.event }}</td>
-                            <td>{{ event.penalty }}</td>
-                            <td>{{ event.remarks }}</td>
-                            <td>{{ event.integrity }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p>No event timeline available.</p>
-        {% endif %}
-    </section>
 </div>
 
 <style>

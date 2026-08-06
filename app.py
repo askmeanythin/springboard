@@ -582,26 +582,6 @@ def get_report_metrics(email):
 
     cursor.execute(
         """
-        SELECT
-            me.event_id,
-            me.event_timestamp AS timestamp,
-            me.event_subtype AS event,
-            me.remarks,
-            ih.integrity_after AS integrity,
-            COALESCE(p.penalty_points, 0) AS penalty,
-            me.event_type
-        FROM MonitoringEvent me
-        LEFT JOIN Penalty p ON p.event_id = me.event_id
-        LEFT JOIN IntegrityHistory ih ON ih.event_id = me.event_id
-        WHERE me.session_id=?
-        ORDER BY me.event_timestamp ASC, me.event_id ASC
-        """,
-        (session_id,)
-    )
-    event_timeline = [dict(row) for row in cursor.fetchall()]
-
-    cursor.execute(
-        """
         SELECT current_integrity
         FROM ExamSession
         WHERE session_id=?
@@ -628,8 +608,7 @@ def get_report_metrics(email):
         "multiple_face_count": multiple_face_count,
         "total_suspicious_events": total_suspicious_events,
         "final_integrity": final_integrity,
-        "overall_remark": overall_remark,
-        "event_timeline": event_timeline
+        "overall_remark": overall_remark
     }
 
 
@@ -1357,7 +1336,6 @@ def report():
         total_suspicious_events=metrics["total_suspicious_events"],
         final_integrity=metrics["final_integrity"],
         overall_remark=metrics["overall_remark"],
-        event_timeline=metrics["event_timeline"],
         violations=normalized_summary["violations"],
         total_penalties=normalized_summary["total_penalties"],
         total_screenshots=normalized_summary["total_screenshots"],
