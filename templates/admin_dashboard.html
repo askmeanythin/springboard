@@ -446,6 +446,311 @@ body{
     color:var(--muted);
 }
 
+/* ---------------- OVERALL METRICS ---------------- */
+
+.overview-metrics{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:16px;
+}
+
+.metric-box{
+    background:white;
+    border:1px solid var(--line);
+    min-height:185px;
+    padding:24px;
+
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+
+    transition:.18s ease;
+}
+
+.metric-box:hover{
+    border-color:#b9b6ad;
+}
+
+.metric-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+}
+
+.metric-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted);
+}
+
+.metric-symbol{
+    width:34px;
+    height:34px;
+
+    border:1px solid var(--line);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:15px;
+}
+
+.metric-number{
+    font-size:34px;
+    font-weight:500;
+    letter-spacing:-1.5px;
+}
+
+.metric-subtitle{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:5px;
+}
+
+
+/* ---------------- INTEGRITY METER ---------------- */
+
+.integrity-meter{
+    width:100%;
+    height:5px;
+    background:#e8e6df;
+    margin-top:18px;
+    overflow:hidden;
+}
+
+.integrity-fill{
+    height:100%;
+    background:var(--green);
+}
+
+
+/* ---------------- RISK DISTRIBUTION ---------------- */
+
+.risk-bars{
+    margin-top:20px;
+}
+
+.risk-line{
+    display:grid;
+    grid-template-columns:55px 1fr 42px;
+    align-items:center;
+    gap:9px;
+
+    margin-bottom:9px;
+
+    font-size:11px;
+}
+
+.risk-name{
+    color:var(--muted);
+}
+
+.risk-track{
+    height:5px;
+    background:#e8e6df;
+}
+
+.risk-fill{
+    height:100%;
+}
+
+.risk-low{
+    background:#66806f;
+}
+
+.risk-medium{
+    background:#9a8560;
+}
+
+.risk-high{
+    background:#985e55;
+}
+
+.risk-percent{
+    text-align:right;
+    color:var(--muted);
+}
+
+
+/* ---------------- SUPPORTING METRICS ---------------- */
+
+.supporting-metrics{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+
+    margin-top:16px;
+
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+
+    background:white;
+}
+
+.supporting-item{
+    padding:20px;
+
+    border-right:1px solid var(--line);
+}
+
+.supporting-item:last-child{
+    border-right:0;
+}
+
+.supporting-label{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.9px;
+    color:var(--muted);
+}
+
+.supporting-value{
+    font-size:22px;
+    margin-top:9px;
+    font-weight:500;
+}
+
+
+/* ---------------- CANDIDATE VIEW ---------------- */
+
+.candidate-view{
+    display:none;
+}
+
+.candidate-view.active{
+    display:block;
+}
+
+.overall-view.hidden{
+    display:none;
+}
+
+
+/* ---------------- CANDIDATE DETAIL HEADER ---------------- */
+
+.candidate-detail-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    padding-bottom:22px;
+    border-bottom:1px solid var(--line);
+}
+
+.candidate-detail-person{
+    display:flex;
+    align-items:center;
+    gap:16px;
+}
+
+.candidate-detail-avatar{
+    width:58px;
+    height:58px;
+
+    background:var(--soft);
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:17px;
+    font-weight:600;
+}
+
+.candidate-detail-name{
+    font-family:"Playfair Display",serif;
+    font-size:25px;
+}
+
+.candidate-detail-email{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:5px;
+}
+
+.back-label{
+    border:0;
+    background:none;
+
+    font-family:inherit;
+    font-size:12px;
+
+    color:var(--muted);
+
+    cursor:pointer;
+}
+
+.back-label:hover{
+    color:var(--ink);
+}
+
+
+/* ---------------- CANDIDATE STATS ---------------- */
+
+.candidate-stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+
+    margin-top:25px;
+
+    border-bottom:1px solid var(--line);
+}
+
+.candidate-stat{
+    padding:0 20px 24px 0;
+
+    margin-right:20px;
+
+    border-right:1px solid var(--line);
+}
+
+.candidate-stat:last-child{
+    border-right:0;
+    margin-right:0;
+}
+
+.candidate-stat-label{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.9px;
+    color:var(--muted);
+}
+
+.candidate-stat-value{
+    font-size:28px;
+    margin-top:10px;
+}
+
+
+/* ---------------- CANDIDATE ACTIVITY ---------------- */
+
+.candidate-activity{
+    margin-top:25px;
+}
+
+.candidate-activity-title{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--muted);
+    margin-bottom:13px;
+}
+
+.activity-placeholder{
+    padding:16px 0;
+    border-bottom:1px solid #eceae5;
+
+    display:flex;
+    justify-content:space-between;
+
+    font-size:12px;
+}
+
+.activity-placeholder span:last-child{
+    color:var(--muted);
+}
+
 /* ---------------- RESPONSIVE ---------------- */
 
 @media(max-width:1000px){
@@ -723,37 +1028,333 @@ body{
 
         <!-- OVERVIEW -->
 
-        <div class="overview">
+                <div class="overview">
+
+
+        <!-- ===================================================== -->
+        <!-- OVERALL ADMIN OVERVIEW -->
+        <!-- ===================================================== -->
+
+        <div id="overallView" class="overall-view">
+
+            <div class="overview-head">
+
+                <h2>Overall Overview</h2>
+
+                <span class="view-label">
+                    All examination activity
+                </span>
+
+            </div>
+
+
+            <!-- FOUR MAIN METRICS -->
+
+            <div class="overview-metrics">
+
+
+                <!-- AVERAGE INTEGRITY -->
+
+                <div class="metric-box">
+
+                    <div class="metric-top">
+
+                        <div class="metric-label">
+                            Average Integrity
+                        </div>
+
+                        <div class="metric-symbol">
+                            ◯
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <div class="metric-number">
+                            {{ average_integrity }}
+                        </div>
+
+                        <div class="metric-subtitle">
+                            Across all examination sessions
+                        </div>
+
+
+                        <div class="integrity-meter">
+
+                            <div
+                                class="integrity-fill"
+                                style="width: {{ average_integrity }}%;"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- RISK DISTRIBUTION -->
+
+                <div class="metric-box">
+
+                    <div class="metric-top">
+
+                        <div class="metric-label">
+                            Risk Distribution
+                        </div>
+
+                        <div class="metric-symbol">
+                            ◉
+                        </div>
+
+                    </div>
+
+
+                    <div class="risk-bars">
+
+
+                        <div class="risk-line">
+
+                            <span class="risk-name">
+                                Low
+                            </span>
+
+                            <div class="risk-track">
+
+                                <div
+                                    class="risk-fill risk-low"
+                                    style="width:{{ low_risk_percentage }}%;"
+                                ></div>
+
+                            </div>
+
+                            <span class="risk-percent">
+                                {{ low_risk_percentage }}%
+                            </span>
+
+                        </div>
+
+
+                        <div class="risk-line">
+
+                            <span class="risk-name">
+                                Medium
+                            </span>
+
+                            <div class="risk-track">
+
+                                <div
+                                    class="risk-fill risk-medium"
+                                    style="width:{{ medium_risk_percentage }}%;"
+                                ></div>
+
+                            </div>
+
+                            <span class="risk-percent">
+                                {{ medium_risk_percentage }}%
+                            </span>
+
+                        </div>
+
+
+                        <div class="risk-line">
+
+                            <span class="risk-name">
+                                High
+                            </span>
+
+                            <div class="risk-track">
+
+                                <div
+                                    class="risk-fill risk-high"
+                                    style="width:{{ high_risk_percentage }}%;"
+                                ></div>
+
+                            </div>
+
+                            <span class="risk-percent">
+                                {{ high_risk_percentage }}%
+                            </span>
+
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+
+                <!-- SUSPICIOUS ACTIVITY -->
+
+                <div class="metric-box">
+
+                    <div class="metric-top">
+
+                        <div class="metric-label">
+                            Suspicious Activity
+                        </div>
+
+                        <div class="metric-symbol">
+                            !
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <div class="metric-number">
+                            {{ total_violations }}
+                        </div>
+
+                        <div class="metric-subtitle">
+                            Penalty events recorded
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- AVERAGE DURATION -->
+
+                <div class="metric-box">
+
+                    <div class="metric-top">
+
+                        <div class="metric-label">
+                            Average Duration
+                        </div>
+
+                        <div class="metric-symbol">
+                            ◷
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <div class="metric-number">
+                            {{ average_duration }}
+                        </div>
+
+                        <div class="metric-subtitle">
+                            Average completed session
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+            </div>
+
+
+            <!-- THREE SUPPORTING METRICS -->
+
+            <div class="supporting-metrics">
+
+
+                <div class="supporting-item">
+
+                    <div class="supporting-label">
+                        Completed Tests
+                    </div>
+
+                    <div class="supporting-value">
+                        {{ completed_tests }}
+                    </div>
+
+                </div>
+
+
+                <div class="supporting-item">
+
+                    <div class="supporting-label">
+                        Active Tests
+                    </div>
+
+                    <div class="supporting-value">
+                        {{ active_tests }}
+                    </div>
+
+                </div>
+
+
+                <div class="supporting-item">
+
+                    <div class="supporting-label">
+                        Evidence Captured
+                    </div>
+
+                    <div class="supporting-value">
+                        {{ evidence_captured }}
+                    </div>
+
+                </div>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- ===================================================== -->
+        <!-- SELECTED CANDIDATE VIEW -->
+        <!-- ===================================================== -->
+
+        <div id="candidateView" class="candidate-view">
 
             <div class="overview-head">
 
                 <h2>Candidate Overview</h2>
 
-                <span class="view-label">
-                    Select a candidate
-                </span>
+                <button
+                    class="back-label"
+                    id="backToOverview"
+                    type="button"
+                >
+                    ← All candidates
+                </button>
 
             </div>
 
 
             <div class="detail">
 
-                <div class="detail-top">
 
-                    <div class="detail-person">
+                <!-- CANDIDATE HEADER -->
 
-                        <div class="detail-avatar">
+                <div class="candidate-detail-header">
+
+
+                    <div class="candidate-detail-person">
+
+                        <div
+                            class="candidate-detail-avatar"
+                            id="detailAvatar"
+                        >
                             —
                         </div>
 
+
                         <div>
 
-                            <div class="detail-name">
-                                Candidate details
+                            <div
+                                class="candidate-detail-name"
+                                id="detailName"
+                            >
+                                Candidate
                             </div>
 
-                            <div class="detail-email">
-                                Select a candidate from the list
+                            <div
+                                class="candidate-detail-email"
+                                id="detailEmail"
+                            >
+                                —
                             </div>
 
                         </div>
@@ -762,102 +1363,126 @@ body{
 
 
                     <div class="status">
-                        Ready
+                        Registered
                     </div>
+
 
                 </div>
 
 
-                <div class="detail-stats">
+                <!-- CANDIDATE STATS -->
 
-                    <div class="detail-stat">
+                <div class="candidate-stats">
 
-                        <div class="detail-stat-label">
+
+                    <div class="candidate-stat">
+
+                        <div class="candidate-stat-label">
                             Tests
                         </div>
 
-                        <div class="detail-stat-value">
+                        <div
+                            class="candidate-stat-value"
+                            id="detailTests"
+                        >
                             —
                         </div>
 
                     </div>
 
 
-                    <div class="detail-stat">
+                    <div class="candidate-stat">
 
-                        <div class="detail-stat-label">
+                        <div class="candidate-stat-label">
                             Integrity
                         </div>
 
-                        <div class="detail-stat-value">
+                        <div
+                            class="candidate-stat-value"
+                            id="detailIntegrity"
+                        >
                             —
                         </div>
 
                     </div>
 
 
-                    <div class="detail-stat">
+                    <div class="candidate-stat">
 
-                        <div class="detail-stat-label">
+                        <div class="candidate-stat-label">
                             Violations
                         </div>
 
-                        <div class="detail-stat-value">
+                        <div
+                            class="candidate-stat-value"
+                            id="detailViolations"
+                        >
                             —
                         </div>
 
                     </div>
 
-                </div>
-
-
-                <div class="activity">
-
-                    <div class="activity-title">
-                        Recent activity
-                    </div>
-
-                    <div class="activity-row">
-
-                        <span>
-                            No candidate selected
-                        </span>
-
-                        <span>
-                            —
-                        </span>
-
-                    </div>
-
-                    <div class="activity-row">
-
-                        <span>
-                            Examination session
-                        </span>
-
-                        <span>
-                            —
-                        </span>
-
-                    </div>
-
-                    <div class="activity-row">
-
-                        <span>
-                            Last event
-                        </span>
-
-                        <span>
-                            —
-                        </span>
-
-                    </div>
 
                 </div>
+
+
+                <!-- ACTIVITY -->
+
+                <div class="candidate-activity">
+
+                    <div class="candidate-activity-title">
+                        Current information
+                    </div>
+
+
+                    <div class="activity-placeholder">
+
+                        <span>
+                            Examination sessions
+                        </span>
+
+                        <span id="activityTests">
+                            —
+                        </span>
+
+                    </div>
+
+
+                    <div class="activity-placeholder">
+
+                        <span>
+                            Integrity status
+                        </span>
+
+                        <span id="activityIntegrity">
+                            —
+                        </span>
+
+                    </div>
+
+
+                    <div class="activity-placeholder">
+
+                        <span>
+                            Monitoring status
+                        </span>
+
+                        <span>
+                            Available
+                        </span>
+
+                    </div>
+
+
+                </div>
+
 
             </div>
 
         </div>
+
+
+    </div>
 
     </section>
 
@@ -865,6 +1490,10 @@ body{
 
 
 <script>
+
+/* =========================================================
+   SEARCH
+   ========================================================= */
 
 const searchInput = document.getElementById("searchUser");
 const users = document.querySelectorAll(".user");
@@ -887,6 +1516,150 @@ searchInput.addEventListener("input", function(){
     });
 
 });
+
+
+/* =========================================================
+   VIEWS
+   ========================================================= */
+
+const overallView = document.getElementById("overallView");
+const candidateView = document.getElementById("candidateView");
+const backToOverview = document.getElementById("backToOverview");
+
+
+/* =========================================================
+   CANDIDATE DETAILS
+   ========================================================= */
+
+const detailAvatar = document.getElementById("detailAvatar");
+const detailName = document.getElementById("detailName");
+const detailEmail = document.getElementById("detailEmail");
+
+const detailTests = document.getElementById("detailTests");
+const detailIntegrity = document.getElementById("detailIntegrity");
+const detailViolations = document.getElementById("detailViolations");
+
+const activityTests = document.getElementById("activityTests");
+const activityIntegrity = document.getElementById("activityIntegrity");
+
+
+/* =========================================================
+   CURRENT SELECTED CANDIDATE
+   ========================================================= */
+
+let selectedCandidate = null;
+
+
+/* =========================================================
+   OPEN CANDIDATE
+   ========================================================= */
+
+users.forEach(function(user){
+
+    user.addEventListener("click", function(){
+
+        /*
+         * If the same candidate is clicked again,
+         * return to the overall overview.
+         */
+
+        if(selectedCandidate === user){
+
+            showOverallOverview();
+
+            return;
+
+        }
+
+
+        selectedCandidate = user;
+
+
+        const searchData = user.dataset.search.trim();
+
+        const parts = searchData.split(/\s+/);
+
+        const firstName = parts[0] || "";
+        const lastName = parts.length > 1
+            ? parts[parts.length - 2]
+            : "";
+
+
+        const fullName = user.querySelector(".user-name").textContent.trim();
+
+        const email = user.querySelector(".user-email").textContent.trim();
+
+        const tests = user.querySelector(".user-tests strong").textContent.trim();
+
+
+        /* Avatar */
+
+        let initials = "";
+
+        if(firstName){
+            initials += firstName.charAt(0).toUpperCase();
+        }
+
+        if(lastName){
+            initials += lastName.charAt(0).toUpperCase();
+        }
+
+
+        detailAvatar.textContent = initials || "—";
+
+        detailName.textContent = fullName;
+
+        detailEmail.textContent = email;
+
+        detailTests.textContent = tests;
+
+        activityTests.textContent = tests;
+
+
+        /*
+         * Integrity and violations will be connected
+         * to the database in the next backend step.
+         */
+
+        detailIntegrity.textContent = "—";
+
+        detailViolations.textContent = "—";
+
+        activityIntegrity.textContent = "Not calculated";
+
+
+        /* Switch views */
+
+        overallView.classList.add("hidden");
+
+        candidateView.classList.add("active");
+
+    });
+
+});
+
+
+/* =========================================================
+   RETURN TO OVERALL
+   ========================================================= */
+
+backToOverview.addEventListener("click", function(){
+
+    showOverallOverview();
+
+});
+
+
+function showOverallOverview(){
+
+    selectedCandidate = null;
+
+    candidateView.classList.remove("active");
+
+    overallView.classList.remove("hidden");
+
+}
+
 
 </script>
 

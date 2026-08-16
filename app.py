@@ -1388,7 +1388,8 @@ def report():
         total_screenshots=normalized_summary["total_screenshots"],
         normalized_integrity=normalized_summary["final_integrity"]
     )
-# ---------------- DASHBOARD ----------------
+# ---------------- ADMIN DASHBOARD ----------------
+
 @app.route("/admin/dashboard")
 def admin_dashboard():
 
@@ -1398,6 +1399,10 @@ def admin_dashboard():
     conn = db_connect()
     cursor = conn.cursor()
 
+    # =========================================================
+    # ALL REGISTERED CANDIDATES
+    # =========================================================
+
     cursor.execute("""
         SELECT
             c.candidate_id,
@@ -1405,23 +1410,294 @@ def admin_dashboard():
             c.middle_name,
             c.last_name,
             c.email,
+
             COUNT(es.session_id) AS total_tests
+
         FROM Candidate c
+
         LEFT JOIN ExamSession es
             ON c.candidate_id = es.candidate_id
+
         GROUP BY c.candidate_id
-        ORDER BY c.email
+
+        ORDER BY c.candidate_id
     """)
 
     users = cursor.fetchall()
 
-    conn.close()
 
-    return render_template(
-        "admin_dashboard.html",
-        users=users
+    # =========================================================
+    # TOTAL EXAM SESSIONS
+    # =========================================================
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM ExamSession
+    """)
+
+    total_tests = cursor.fetchone()[0] or 0
+
+
+    # =========================================================
+    # COMPLETED SESSIONS
+    # =========================================================
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM ExamSession
+        WHERE status = 'Completed'
+           OR end_time IS NOT NULL
+    """)
+
+    completed_tests = cursor.fetchone()[0] or 0
+
+
+    # =========================================================
+    # ACTIVE SESSIONS
+    #
+    # A session is considered active ONLY when:
+    #
+    # 1. It has not been completed
+    # 2. It has no end_time
+    #
+    # This prevents an old completed session from appearing
+    # as an active examination.
+    # =========================================================
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM ExamSession
+        WHERE status != 'Completed'
+          AND end_time IS NULL
+    """)
+
+    active_tests = cursor.fetchone()[0] or 0
+
+
+    # =========================================================
+    # AVERAGE INTEGRITY
+    # =========================================================
+
+    cursor.execute("""
+        SELECT AVG(current_integrity)
+        FROM ExamSession
+    """)
+
+    average_integrity = cursor.fetchone()[0]
+
+    if average_integrity is None:
+        average_integrity = 100
+
+    average_integrity = round(average_integrity, 1)
+
+
+    # =========================================================
+    # SUSPICIOUS ACTIVITY
+    # =========================================================
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM Penalty
+    """)
+
+    total_violations = cursor.fetchone()[0] or 0
+
+
+    # =========================================================
+    # EVIDENCE COUNT
+    # =========================================================
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM Screenshot
+    """)
+
+    evidence_captured = cursor.fetchone()[0] or 0
+
+
+    # =========================================================
+    # RISK DISTRIBUTION
+    # =========================================================
+
+    cursor.execute("""
+        SELECT current_integrity
+        FROM ExamSession
+    """)
+
+    integrity_rows = cursor.fetchall()
+
+
+    risk_counts = {
+        "Low": 0,
+        "Medium": 0,
+        "High": 0
+    }
+
+
+    for row in integrity_rows:
+
+        integrity = row[0]
+
+        if integrity is None:
+            continue
+
+        if integrity >= 70:
+
+            risk_counts["Low"] += 1
+
+        elif integrity >= 40:
+
+            risk_counts["Medium"] += 1
+
+        else:
+
+            risk_counts["High"] += 1
+
+
+    total_risk_sessions = sum(risk_counts.values())
+
+
+    if total_risk_sessions > 0:
+
+        low_risk_percentage = round(
+            (risk_counts["Low"] / total_risk_sessions) * 100,
+            1
+        )
+
+        medium_risk_percentage = round(
+            (risk_counts["Medium"] / total_risk_sessions) * 100,
+            1
+        )
+
+        high_risk_percentage = round(
+            (risk_counts["High"] / total_risk_sessions) * 100,
+            1
+        )
+
+    else:
+
+        low_risk_percentage = 0
+        medium_risk_percentage = 0
+        high_risk_percentage = 0
+
+
+    # =========================================================
+    # AVERAGE EXAM DURATION
+    # =========================================================
+
+    cursor.execute("""
+        SELECT AVG(
+            (julianday(end_time) - julianday(start_time)) * 86400
+        )
+        FROM ExamSession
+        WHERE start_time IS NOT NULL
+          AND end_time IS NOT NULL
+    """)
+
+    average_duration_seconds = cursor.fetchone()[0]
+
+
+    if average_duration_seconds is None:
+        average_duration_seconds = 0
+
+
+    average_duration_seconds = int(
+        average_duration_seconds
     )
 
+
+    if average_duration_seconds < 60:
+
+        average_duration = (
+            f"{average_duration_seconds} sec"
+        )
+
+    else:
+
+        average_minutes = (
+            average_duration_seconds // 60
+        )
+
+        remaining_seconds = (
+            average_duration_seconds % 60
+        )
+
+
+        if average_minutes < 60:
+
+            if remaining_seconds > 0:
+
+                average_duration = (
+                    f"{average_minutes}m "
+                    f"{remaining_seconds}s"
+                )
+
+            else:
+
+                average_duration = (
+                    f"{average_minutes}m"
+                )
+
+        else:
+
+            hours = average_minutes // 60
+
+            minutes = average_minutes % 60
+
+
+            if minutes > 0:
+
+                average_duration = (
+                    f"{hours}h {minutes}m"
+                )
+
+            else:
+
+                average_duration = (
+                    f"{hours}h"
+                )
+
+
+    conn.close()
+
+
+    # =========================================================
+    # SEND EVERYTHING TO ADMIN PAGE
+    # =========================================================
+
+    return render_template(
+
+        "admin_dashboard.html",
+
+        users=users,
+
+        total_tests=total_tests,
+
+        completed_tests=completed_tests,
+
+        active_tests=active_tests,
+
+        average_integrity=average_integrity,
+
+        total_violations=total_violations,
+
+        evidence_captured=evidence_captured,
+
+        risk_counts=risk_counts,
+
+        low_risk_percentage=low_risk_percentage,
+
+        medium_risk_percentage=medium_risk_percentage,
+
+        high_risk_percentage=high_risk_percentage,
+
+        average_duration=average_duration
+
+    )
+
+
+
+# ---------------- NORMAL DASHBOARD ----------------
 
 @app.route("/dashboard")
 def dashboard():

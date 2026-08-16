@@ -5,8 +5,7 @@ venv/
 __pycache__/
 *.pyc
 
-# Screenshots
-screenshots/
+
 
 # Environment variables
 .env
