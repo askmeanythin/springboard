@@ -1454,24 +1454,46 @@ def admin_dashboard():
 
     # =========================================================
     # ACTIVE SESSIONS
-    #
-    # A session is considered active ONLY when:
-    #
-    # 1. It has not been completed
-    # 2. It has no end_time
-    #
-    # This prevents an old completed session from appearing
-    # as an active examination.
     # =========================================================
 
     cursor.execute("""
         SELECT COUNT(*)
         FROM ExamSession
-        WHERE status != 'Completed'
-          AND end_time IS NULL
+        WHERE status IN ('Started', 'Resumed')
+        AND end_time IS NULL
     """)
 
     active_tests = cursor.fetchone()[0] or 0
+
+    print("\n========== ACTIVE SESSION CHECK ==========")
+
+    cursor.execute("""
+        SELECT
+            session_id,
+            candidate_id,
+            start_time,
+            end_time,
+            status
+        FROM ExamSession
+        WHERE status IN ('Started', 'Resumed')
+        AND end_time IS NULL
+        ORDER BY session_id
+    """)
+
+    active_rows = cursor.fetchall()
+
+    print("ACTIVE SESSION COUNT:", len(active_rows))
+
+    for row in active_rows:
+        print(
+            "Session ID:", row["session_id"],
+            "| Candidate ID:", row["candidate_id"],
+            "| Start:", row["start_time"],
+            "| End:", row["end_time"],
+            "| Status:", row["status"]
+        )
+
+    print("==========================================\n")
 
 
     # =========================================================
@@ -1501,6 +1523,61 @@ def admin_dashboard():
     """)
 
     total_violations = cursor.fetchone()[0] or 0
+
+
+    # =========================================================
+    # ALERT TESTS
+    # =========================================================
+    #
+    # Any examination session with integrity below 45
+    # is considered an alert and requires admin review.
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            es.session_id,
+            es.candidate_id,
+            c.first_name,
+            c.middle_name,
+            c.last_name,
+            c.email,
+            es.current_integrity,
+            es.status,
+            es.start_time,
+            es.end_time
+
+        FROM ExamSession es
+
+        JOIN Candidate c
+            ON c.candidate_id = es.candidate_id
+
+        WHERE es.current_integrity < 45
+
+        ORDER BY es.current_integrity ASC
+    """)
+
+    alert_rows = cursor.fetchall()
+
+
+    # Number of tests below the alert threshold
+
+    alert_count = len(alert_rows)
+
+
+    # ---------------------------------------------------------
+    # Alert percentage
+    # ---------------------------------------------------------
+
+    if total_tests > 0:
+
+        alert_percentage = round(
+            (alert_count / total_tests) * 100,
+            1
+        )
+
+    else:
+
+        alert_percentage = 0
 
 
     # =========================================================
@@ -1691,7 +1768,13 @@ def admin_dashboard():
 
         high_risk_percentage=high_risk_percentage,
 
-        average_duration=average_duration
+        average_duration=average_duration,
+
+        alert_count=alert_count,
+
+        alert_percentage=alert_percentage,
+
+        alert_rows=alert_rows
 
     )
 

@@ -509,6 +509,171 @@ body{
     margin-top:5px;
 }
 
+/* ---------------- ALERT PICTOGRAPH ---------------- */
+
+.alert-box{
+    position:relative;
+}
+
+.alert-circle-wrapper{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    margin-top:5px;
+}
+
+.alert-circle{
+    position:relative;
+
+    width:112px;
+    height:112px;
+
+    border-radius:50%;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    background:
+        conic-gradient(
+            #985e55 calc({{ alert_percentage }} * 1%),
+            #e8e6df 0
+        );
+
+    cursor:pointer;
+
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease;
+}
+
+.alert-circle::before{
+    content:"";
+
+    position:absolute;
+
+    width:86px;
+    height:86px;
+
+    border-radius:50%;
+
+    background:white;
+}
+
+.alert-circle:hover{
+    transform:scale(1.04);
+
+    box-shadow:
+        0 8px 22px rgba(0,0,0,.10);
+}
+
+.alert-circle-content{
+    position:relative;
+    z-index:2;
+
+    text-align:center;
+}
+
+.alert-number{
+    font-size:28px;
+    font-weight:500;
+    line-height:1;
+}
+
+.alert-label{
+    margin-top:5px;
+
+    font-size:9px;
+    text-transform:uppercase;
+    letter-spacing:.7px;
+
+    color:var(--muted);
+}
+
+
+/* ---------------- ALERT HOVER ---------------- */
+
+.alert-hover{
+    position:absolute;
+
+    top:45px;
+    left:125px;
+
+    width:270px;
+
+    background:white;
+
+    border:1px solid var(--line);
+
+    padding:18px;
+
+    box-shadow:
+        0 12px 30px rgba(0,0,0,.12);
+
+    opacity:0;
+    visibility:hidden;
+
+    transform:translateY(8px);
+
+    transition:.2s ease;
+
+    z-index:50;
+}
+
+.alert-box:hover .alert-hover{
+    opacity:1;
+    visibility:visible;
+
+    transform:translateY(0);
+}
+
+.alert-hover-title{
+    font-size:13px;
+    font-weight:600;
+
+    margin-bottom:4px;
+}
+
+.alert-hover-subtitle{
+    font-size:11px;
+    color:var(--muted);
+
+    margin-bottom:12px;
+}
+
+.alert-person{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    padding:9px 0;
+
+    border-top:1px solid #eceae5;
+
+    font-size:11px;
+}
+
+.alert-person-name{
+    max-width:165px;
+
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+}
+
+.alert-person-score{
+    color:#985e55;
+    font-weight:600;
+}
+
+.alert-empty{
+    font-size:11px;
+    color:var(--muted);
+
+    padding-top:5px;
+}
+
 
 /* ---------------- INTEGRITY METER ---------------- */
 
@@ -1186,14 +1351,14 @@ body{
                 </div>
 
 
-                <!-- SUSPICIOUS ACTIVITY -->
+                <!-- ALERTS -->
 
-                <div class="metric-box">
+                <div class="metric-box alert-box">
 
                     <div class="metric-top">
 
                         <div class="metric-label">
-                            Suspicious Activity
+                            Alerts
                         </div>
 
                         <div class="metric-symbol">
@@ -1203,16 +1368,81 @@ body{
                     </div>
 
 
-                    <div>
+                    <div class="alert-circle-wrapper">
 
-                        <div class="metric-number">
-                            {{ total_violations }}
+                        <div class="alert-circle">
+
+                            <div class="alert-circle-content">
+
+                                <div class="alert-number">
+                                    {{ alert_count }}
+                                </div>
+
+                                <div class="alert-label">
+                                    Tests
+                                </div>
+
+                            </div>
+
                         </div>
 
-                        <div class="metric-subtitle">
-                            Penalty events recorded
+
+                        <!-- HOVER DETAILS -->
+
+                        <div class="alert-hover">
+
+                            <div class="alert-hover-title">
+                                Integrity Alerts
+                            </div>
+
+                            <div class="alert-hover-subtitle">
+                                Tests with integrity below 45
+                            </div>
+
+
+                            {% if alert_rows %}
+
+                                {% for alert in alert_rows %}
+
+                                <div class="alert-person">
+
+                                    <span class="alert-person-name">
+
+                                        {{ alert.first_name }}
+
+                                        {% if alert.middle_name %}
+                                            {{ alert.middle_name }}
+                                        {% endif %}
+
+                                        {{ alert.last_name }}
+
+                                    </span>
+
+                                    <span class="alert-person-score">
+
+                                        {{ "%.1f"|format(alert.current_integrity) }}
+
+                                    </span>
+
+                                </div>
+
+                                {% endfor %}
+
+                            {% else %}
+
+                                <div class="alert-empty">
+                                    No tests currently below the alert threshold.
+                                </div>
+
+                            {% endif %}
+
                         </div>
 
+                    </div>
+
+
+                    <div class="metric-subtitle">
+                        {{ alert_percentage }}% of tests below 45
                     </div>
 
                 </div>
