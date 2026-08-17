@@ -345,8 +345,14 @@ body{
     display:block;
     max-width:100%;
     height:auto;
-    max-height:400px;
+    max-height:120px;
     width:auto;
+    cursor:pointer;
+    transition:transform .15s ease;
+}
+
+.timeline-screenshot img:hover{
+    transform:scale(1.02);
 }
 
 .timeline-screenshot-caption{
@@ -355,6 +361,92 @@ body{
     color:var(--muted);
     background:var(--soft);
     border-top:1px solid var(--line);
+}
+
+/* ---------------- EVIDENCE MODAL ---------------- */
+
+.evidence-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.85);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    padding:40px;
+    animation:fadeIn .2s ease;
+}
+
+@keyframes fadeIn{
+    from{opacity:0}
+    to{opacity:1}
+}
+
+.evidence-modal.hidden{
+    display:none;
+}
+
+.evidence-modal-content{
+    position:relative;
+    max-width:90vw;
+    max-height:90vh;
+}
+
+.evidence-modal-content img{
+    display:block;
+    max-width:100%;
+    max-height:90vh;
+    height:auto;
+    border-radius:4px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+
+.evidence-modal-close{
+    position:absolute;
+    top:-50px;
+    right:0;
+    width:40px;
+    height:40px;
+    border:0;
+    background:rgba(255,255,255,.1);
+    color:white;
+    font-size:24px;
+    line-height:1;
+    border-radius:50%;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transition:background .15s ease;
+}
+
+.evidence-modal-close:hover{
+    background:rgba(255,255,255,.25);
+}
+
+.evidence-modal-caption{
+    margin-top:12px;
+    text-align:center;
+    color:rgba(255,255,255,.7);
+    font-size:13px;
+}
+
+@media(max-width:650px){
+    .evidence-modal{
+        padding:20px;
+    }
+
+    .evidence-modal-close{
+        top:-45px;
+        right:0;
+        width:36px;
+        height:36px;
+        font-size:20px;
+    }
+
+    .timeline-screenshot img{
+        max-height:100px;
+    }
 }
 
 .empty-state{
@@ -407,7 +499,7 @@ body{
             Administration
         </span>
 
-        <button class="logout">
+        <button class="logout" onclick="window.location.href='/logout'">
             Logout
         </button>
 
@@ -596,7 +688,12 @@ body{
 
                     {% if event.screenshot_path %}
                     <div class="timeline-screenshot">
-                        <img src="/screenshots/{{ event.screenshot_path }}" alt="Evidence screenshot">
+                        <img
+                            src="/screenshots/{{ event.screenshot_path }}"
+                            alt="Evidence screenshot"
+                            data-evidence-path="{{ event.screenshot_path }}"
+                            data-evidence-name="{{ event.screenshot_path.split('/')[-1] }}"
+                        >
                         <div class="timeline-screenshot-caption">
                             Evidence: {{ event.screenshot_path.split('/')[-1] }}
                         </div>
@@ -621,6 +718,66 @@ body{
 
 
 </main>
+
+<!-- Evidence Modal -->
+<div class="evidence-modal hidden" id="evidenceModal" role="dialog" aria-modal="true" aria-label="Evidence image full screen">
+    <div class="evidence-modal-content">
+        <button class="evidence-modal-close" id="evidenceModalClose" aria-label="Close evidence image">&times;</button>
+        <img id="evidenceModalImage" src="" alt="Evidence screenshot">
+        <div class="evidence-modal-caption" id="evidenceModalCaption"></div>
+    </div>
+</div>
+
+<script>
+/* =========================================================
+   EVIDENCE MODAL
+   ========================================================= */
+
+const evidenceModal = document.getElementById('evidenceModal');
+const evidenceModalImage = document.getElementById('evidenceModalImage');
+const evidenceModalCaption = document.getElementById('evidenceModalCaption');
+const evidenceModalClose = document.getElementById('evidenceModalClose');
+
+function openEvidenceModal(imageSrc, caption) {
+    evidenceModalImage.src = imageSrc;
+    evidenceModalCaption.textContent = caption;
+    evidenceModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEvidenceModal() {
+    evidenceModal.classList.add('hidden');
+    evidenceModalImage.src = '';
+    evidenceModalCaption.textContent = '';
+    document.body.style.overflow = '';
+}
+
+// Click on evidence thumbnails
+document.querySelectorAll('.timeline-screenshot img').forEach(function(img) {
+    img.addEventListener('click', function() {
+        const src = this.src;
+        const caption = this.dataset.evidenceName || 'Evidence';
+        openEvidenceModal(src, caption);
+    });
+});
+
+// Close button
+evidenceModalClose.addEventListener('click', closeEvidenceModal);
+
+// Click outside image to close
+evidenceModal.addEventListener('click', function(e) {
+    if (e.target === evidenceModal) {
+        closeEvidenceModal();
+    }
+});
+
+// Escape key to close
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && !evidenceModal.classList.contains('hidden')) {
+        closeEvidenceModal();
+    }
+});
+</script>
 
 </body>
 </html>
