@@ -2,8 +2,73 @@ from flask import Flask, render_template, request, session, redirect, url_for, R
 import sqlite3
 import cv2
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import random
+
+IST = ZoneInfo("Asia/Kolkata")
+
+
+def iso_now():
+    """
+    Return current IST time as naive datetime string in format SQLite's PARSE_DECLTYPES expects:
+    'YYYY-MM-DD HH:MM:SS.ffffff' (space-separated, no timezone offset).
+    The wall-clock time represents IST, and since server is in IST, templates' .strftime() displays correctly.
+    """
+    return datetime.now(IST).replace(tzinfo=None).isoformat(' ')
+
+
+def parse_iso(value):
+    """
+    Parse a timestamp string (from SQLite or otherwise) into timezone-aware IST datetime.
+    Handles multiple formats:
+    - ISO with offset: '2026-08-18T23:30:00+05:30'
+    - ISO naive: '2026-08-18T23:30:00'
+    - Space-separated naive (SQLite format): '2026-08-18 23:30:00.123456'
+    - Space-separated without microseconds: '2026-08-18 23:30:00'
+    All naive inputs are interpreted as IST wall-clock.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=IST)
+        return value.astimezone(IST)
+    # Try ISO format first (handles 'T' separator and offsets)
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        # Try space-separated format
+        try:
+            if '.' in value:
+                dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+            else:
+                dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            raise
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=IST)
+    return dt.astimezone(IST)
+
+
+def parse_current_timestamp(value):
+    """Parse a CURRENT_TIMESTAMP column value (UTC, naive) into IST-aware datetime."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc).astimezone(IST)
+        return value.astimezone(IST)
+    # String from SQLite: "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM:SS.ffffff"
+    try:
+        if '.' in value:
+            dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+        else:
+            dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        # Try ISO format just in case
+        dt = datetime.fromisoformat(value.replace(' ', 'T'))
+    return dt.replace(tzinfo=timezone.utc).astimezone(IST)
 import string
 import base64
 import time
@@ -285,7 +350,7 @@ def save_violation_screenshot(frame, session_id, violation_type):
         return None
 
     safe_violation = violation_type.lower().replace(" ", "_")
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = datetime.now(IST).replace(tzinfo=None).strftime("%Y-%m-%d_%H-%M-%S")
     relative_folder = f"session_{session_id}"
     folder_path = os.path.join(SCREENSHOT_FOLDER, relative_folder)
     os.makedirs(folder_path, exist_ok=True)
@@ -331,18 +396,20 @@ def record_monitoring_violation(session_id, event_type, event_subtype, penalty_p
                 event_type,
                 event_subtype,
                 severity,
+                event_timestamp,
                 remarks,
                 face_count,
                 browser_state,
                 source
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 session_id,
                 event_type,
                 event_subtype,
                 severity,
+                iso_now(),
                 remarks,
                 face_count_value,
                 browser_state,
@@ -362,11 +429,12 @@ def record_monitoring_violation(session_id, event_type, event_subtype, penalty_p
                         event_id,
                         session_id,
                         screenshot_path,
-                        image_type
+                        image_type,
+                        captured_at
                     )
-                    VALUES (?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?)
                     """,
-                    (event_id, session_id, screenshot_path, event_subtype)
+                    (event_id, session_id, screenshot_path, event_subtype, iso_now())
                 )
 
         if penalty_points:
@@ -377,11 +445,12 @@ def record_monitoring_violation(session_id, event_type, event_subtype, penalty_p
                     event_id,
                     session_id,
                     penalty_points,
-                    reason
+                    reason,
+                    applied_at
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (event_id, session_id, penalty_points, event_subtype)
+                (event_id, session_id, penalty_points, event_subtype, iso_now())
             )
 
         cursor.execute(
@@ -392,11 +461,12 @@ def record_monitoring_violation(session_id, event_type, event_subtype, penalty_p
                 event_id,
                 integrity_before,
                 integrity_after,
-                delta
+                delta,
+                recorded_at
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (session_id, event_id, integrity_before, integrity_after, -penalty_points)
+            (session_id, event_id, integrity_before, integrity_after, -penalty_points, iso_now())
         )
 
         cursor.execute(
@@ -505,24 +575,19 @@ def format_duration(start_time, end_time=None):
     if start_time is None:
         return ""
 
-    if isinstance(start_time, str):
-        start_time = datetime.fromisoformat(start_time)
+    start_dt = parse_iso(start_time)
 
     if end_time is None:
-        end_time = datetime.now()
-    elif isinstance(end_time, str):
-        end_time = datetime.fromisoformat(end_time)
+        end_dt = datetime.now(IST)
+    else:
+        end_dt = parse_iso(end_time)
 
-    duration = end_time - start_time
+    duration = end_dt - start_dt
     return str(duration).split(".")[0]
 
 
 def parse_timestamp(value):
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, str):
-        return datetime.fromisoformat(value)
-    return None
+    return parse_iso(value)
 
 
 def get_last_penalty_after(cursor, email, log_id, reason):
@@ -666,12 +731,13 @@ def append_exam_log(email, event, remarks=None, event_type="Exam Event", penalty
                 event_type,
                 event_subtype,
                 severity,
+                event_timestamp,
                 remarks,
                 source
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (session_id, event_type, event, "Info", remarks, "system")
+            (session_id, event_type, event, "Info", iso_now(), remarks, "system")
         )
         event_id = cursor.lastrowid
 
@@ -683,11 +749,12 @@ def append_exam_log(email, event, remarks=None, event_type="Exam Event", penalty
                     event_id,
                     session_id,
                     penalty_points,
-                    reason
+                    reason,
+                    applied_at
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (event_id, session_id, penalty, event)
+                (event_id, session_id, penalty, event, iso_now())
             )
 
             new_integrity = max(0, integrity - penalty)
@@ -699,11 +766,12 @@ def append_exam_log(email, event, remarks=None, event_type="Exam Event", penalty
                     event_id,
                     integrity_before,
                     integrity_after,
-                    delta
+                    delta,
+                    recorded_at
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (session_id, event_id, integrity, new_integrity, -penalty)
+                (session_id, event_id, integrity, new_integrity, -penalty, iso_now())
             )
             cursor.execute(
                 """
@@ -754,12 +822,13 @@ def apply_penalty(email, reason, penalty, event="Penalty"):
                 event_type,
                 event_subtype,
                 severity,
+                event_timestamp,
                 remarks,
                 source
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (session_id, "Penalty", reason, "Warning", f"{reason} (-{penalty})", "system")
+            (session_id, "Penalty", reason, "Warning", iso_now(), f"{reason} (-{penalty})", "system")
         )
         event_id = cursor.lastrowid
 
@@ -770,11 +839,12 @@ def apply_penalty(email, reason, penalty, event="Penalty"):
                 event_id,
                 session_id,
                 penalty_points,
-                reason
+                reason,
+                applied_at
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (event_id, session_id, penalty, reason)
+            (event_id, session_id, penalty, reason, iso_now())
         )
         cursor.execute(
             """
@@ -784,11 +854,12 @@ def apply_penalty(email, reason, penalty, event="Penalty"):
                 event_id,
                 integrity_before,
                 integrity_after,
-                delta
+                delta,
+                recorded_at
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (session_id, event_id, current_integrity, new_integrity, -penalty)
+            (session_id, event_id, current_integrity, new_integrity, -penalty, iso_now())
         )
         cursor.execute(
             """
@@ -1234,7 +1305,7 @@ def start_exam():
     """, (
         session["candidate_id"],
         exam_id,
-        datetime.now(),
+        iso_now(),
         "Started",
         100,
         100,
@@ -1325,7 +1396,7 @@ def end_exam():
 
     conn.execute("BEGIN")
 
-    now = datetime.now()
+    now = iso_now()
 
     cursor.execute("""
         UPDATE ExamSession
@@ -1662,13 +1733,23 @@ def admin_dashboard():
             cid = row["candidate_id"]
             if cid not in seen:
                 seen.add(cid)
+                def dt_to_iso(dt):
+                    """Convert naive datetime (IST wall-clock) to ISO string with +05:30 offset."""
+                    if dt is None:
+                        return None
+                    if isinstance(dt, datetime):
+                        if dt.tzinfo is None:
+                            return dt.replace(tzinfo=IST).isoformat()
+                        return dt.astimezone(IST).isoformat()
+                    return str(dt)
+
                 if cid in candidate_stats:
                     candidate_stats[cid]["latest_exam"] = {
                         "session_id": row["session_id"],
                         "exam_id": row["exam_id"],
                         "exam_name": row["exam_name"],
-                        "start_time": row["start_time"],
-                        "end_time": row["end_time"],
+                        "start_time": dt_to_iso(row["start_time"]),
+                        "end_time": dt_to_iso(row["end_time"]),
                         "integrity": row["current_integrity"],
                         "status": row["status"]
                     }
@@ -1678,8 +1759,8 @@ def admin_dashboard():
                             "session_id": row["session_id"],
                             "exam_id": row["exam_id"],
                             "exam_name": row["exam_name"],
-                            "start_time": row["start_time"],
-                            "end_time": row["end_time"],
+                            "start_time": dt_to_iso(row["start_time"]),
+                            "end_time": dt_to_iso(row["end_time"]),
                             "integrity": row["current_integrity"],
                             "status": row["status"]
                         }
@@ -1768,24 +1849,24 @@ def admin_dashboard():
     # =========================================================
 
     cursor.execute("""
-        SELECT AVG(
-            (julianday(end_time) - julianday(start_time)) * 86400
-        )
+        SELECT start_time, end_time
         FROM ExamSession
         WHERE start_time IS NOT NULL
           AND end_time IS NOT NULL
     """)
 
-    average_duration_seconds = cursor.fetchone()[0]
+    duration_seconds_list = []
+    for row in cursor.fetchall():
+        start_dt = parse_iso(row["start_time"])
+        end_dt = parse_iso(row["end_time"])
+        if start_dt is not None and end_dt is not None:
+            duration_seconds_list.append((end_dt - start_dt).total_seconds())
 
+    average_duration_seconds = 0
+    if duration_seconds_list:
+        average_duration_seconds = sum(duration_seconds_list) / len(duration_seconds_list)
 
-    if average_duration_seconds is None:
-        average_duration_seconds = 0
-
-
-    average_duration_seconds = int(
-        average_duration_seconds
-    )
+    average_duration_seconds = int(average_duration_seconds)
 
 
     if average_duration_seconds < 60:
@@ -2296,7 +2377,7 @@ def generate_frames():
                 2
             )
 
-        current_time = datetime.now().strftime("%H:%M:%S")
+        current_time = datetime.now(IST).strftime("%H:%M:%S")
 
         cv2.putText(
             frame,
@@ -2424,7 +2505,7 @@ def browser_event():
                 )
                 VALUES (?, ?, ?, ?)
                 """,
-                (session_id, event, datetime.now(), event)
+                (session_id, event, iso_now(), event)
             )
         elif event == "Browser Focus Regained":
             cursor.execute(
@@ -2439,10 +2520,10 @@ def browser_event():
             )
             last_lost = cursor.fetchone()
             if last_lost:
-                started_at = parse_timestamp(last_lost[1])
+                started_at = parse_iso(last_lost[1])
                 duration_seconds = 0
                 if started_at is not None:
-                    duration_seconds = int((datetime.now() - started_at).total_seconds())
+                    duration_seconds = int((datetime.now(IST) - started_at).total_seconds())
 
                 cursor.execute(
                     """
@@ -2450,7 +2531,7 @@ def browser_event():
                     SET ended_at=?, duration_seconds=?, remarks=?
                     WHERE browser_event_id=?
                     """,
-                    (datetime.now(), duration_seconds, event, last_lost[0])
+                    (iso_now(), duration_seconds, event, last_lost[0])
                 )
 
                 if duration_seconds >= BROWSER_FOCUS_THRESHOLD:

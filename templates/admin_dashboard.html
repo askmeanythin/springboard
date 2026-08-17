@@ -1428,8 +1428,8 @@ body{
                                     <div>Email: {{ alert.email }}</div>
                                     <div>Session ID: {{ alert.session_id }}</div>
                                     <div>Status: {{ alert.status }}</div>
-                                    <div>Start: {{ alert.start_time }}</div>
-                                    <div>End: {{ alert.end_time if alert.end_time else '—' }}</div>
+                                    <div>Start: {{ alert.start_time.strftime('%Y-%m-%d %H:%M:%S') if alert.start_time else '—' }}</div>
+                                    <div>End: {{ alert.end_time.strftime('%Y-%m-%d %H:%M:%S') if alert.end_time else '—' }}</div>
                                 </div>
 
                                 {% endfor %}
@@ -1950,7 +1950,7 @@ users.forEach(function(user){
                     latest.session_id || "—";
 
                 activityStartTime.textContent =
-                    latest.start_time || "—";
+                    latest.start_time ? formatTimestamp(latest.start_time) : "—";
 
                 activityIntegrity.textContent =
                     latest.integrity !== null && latest.integrity !== undefined
@@ -2008,6 +2008,41 @@ users.forEach(function(user){
     });
 
 });
+
+
+/* =========================================================
+   TIMESTAMP FORMATTING
+   ========================================================= */
+
+function formatTimestamp(value){
+    if(!value){
+        return "—";
+    }
+    // value is an ISO string like "2026-08-18T23:30:00+05:30"
+    // Display in IST (Asia/Kolkata) regardless of browser timezone
+    try{
+        const d = new Date(value);
+        if(isNaN(d.getTime())){
+            return value;
+        }
+        const opts = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+                       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+        // Use toLocaleString with IST timezone, then reformat to YYYY-MM-DD HH:MM:SS
+        const parts = d.toLocaleString('en-CA', opts).split(/[ ,/]/);
+        // en-CA gives YYYY-MM-DD, HH:MM:SS
+        if(parts.length >= 5){
+            return `${parts[0]}-${parts[1]}-${parts[2]} ${parts[3]}:${parts[4]}:${parts[5]}`;
+        }
+    }catch(e){
+        // Fallback to naive parsing if toLocaleString fails
+    }
+    // Fallback: parse ISO manually for IST
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+    if(m){
+        return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}`;
+    }
+    return value;
+}
 
 
 /* =========================================================

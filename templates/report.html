@@ -58,8 +58,8 @@ margin-bottom:30px;
             <h2>Session Information</h2>
             {% if session_data %}
                 <p><strong>Session ID</strong><br>{{ session_data[0] }}</p>
-                <p><strong>Start Time</strong><br>{{ session_data[1] }}</p>
-                <p><strong>End Time</strong><br>{{ session_data[2] }}</p>
+                <p><strong>Start Time</strong><br>{{ session_data[1].strftime('%Y-%m-%d %H:%M:%S') if session_data[1] else '—' }}</p>
+                <p><strong>End Time</strong><br>{{ session_data[2].strftime('%Y-%m-%d %H:%M:%S') if session_data[2] else '—' }}</p>
                 <p><strong>Duration</strong><br>{{ duration }}</p>
                 <p><strong>Status</strong><br>{{ session_data[3] }}</p>
             {% else %}
@@ -101,7 +101,7 @@ margin-bottom:30px;
                 <tbody>
                     {% for violation in violations %}
                         <tr>
-                            <td>{{ violation.event_timestamp }}</td>
+                            <td>{{ violation.event_timestamp.strftime('%Y-%m-%d %H:%M:%S') if violation.event_timestamp else '—' }}</td>
                             <td>
                                 {{ violation.event_subtype }}
                                 {% if violation.face_count is not none %}
