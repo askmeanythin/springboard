@@ -1581,6 +1581,110 @@ def admin_dashboard():
 
 
     # =========================================================
+    # PER-CANDIDATE STATISTICS
+    # =========================================================
+    # For the candidate overview panel when a candidate is selected
+
+    # Build a dict of candidate stats keyed by candidate_id
+    candidate_stats = {}
+
+    # Get all candidate IDs from users
+    candidate_ids = [u["candidate_id"] for u in users]
+
+    if candidate_ids:
+        placeholders = ",".join("?" * len(candidate_ids))
+
+        # Average integrity per candidate
+        cursor.execute(f"""
+            SELECT
+                c.candidate_id,
+                AVG(es.current_integrity) as avg_integrity,
+                COUNT(es.session_id) as total_tests,
+                SUM(CASE WHEN es.status = 'Completed' OR es.end_time IS NOT NULL THEN 1 ELSE 0 END) as completed_tests,
+                MAX(es.start_time) as latest_start
+            FROM Candidate c
+            LEFT JOIN ExamSession es ON c.candidate_id = es.candidate_id
+            WHERE c.candidate_id IN ({placeholders})
+            GROUP BY c.candidate_id
+        """, candidate_ids)
+
+        integrity_rows = cursor.fetchall()
+        for row in integrity_rows:
+            candidate_stats[row["candidate_id"]] = {
+                "avg_integrity": round(row["avg_integrity"], 1) if row["avg_integrity"] is not None else None,
+                "total_tests": row["total_tests"] or 0,
+                "completed_tests": row["completed_tests"] or 0,
+                "latest_start": row["latest_start"]
+            }
+
+        # Total violations per candidate (from Penalty -> ExamSession)
+        cursor.execute(f"""
+            SELECT
+                c.candidate_id,
+                COUNT(p.penalty_id) as total_violations
+            FROM Candidate c
+            LEFT JOIN ExamSession es ON c.candidate_id = es.candidate_id
+            LEFT JOIN Penalty p ON es.session_id = p.session_id
+            WHERE c.candidate_id IN ({placeholders})
+            GROUP BY c.candidate_id
+        """, candidate_ids)
+
+        violation_rows = cursor.fetchall()
+        for row in violation_rows:
+            cid = row["candidate_id"]
+            if cid in candidate_stats:
+                candidate_stats[cid]["total_violations"] = row["total_violations"] or 0
+            else:
+                candidate_stats[cid] = {"total_violations": row["total_violations"] or 0}
+
+        # Latest exam session per candidate (for "Latest Examination" section)
+        cursor.execute(f"""
+            SELECT
+                c.candidate_id,
+                es.session_id,
+                es.exam_id,
+                e.exam_name,
+                es.start_time,
+                es.end_time,
+                es.current_integrity,
+                es.status
+            FROM Candidate c
+            LEFT JOIN ExamSession es ON c.candidate_id = es.candidate_id
+            LEFT JOIN Exam e ON es.exam_id = e.exam_id
+            WHERE c.candidate_id IN ({placeholders})
+            ORDER BY c.candidate_id, es.start_time DESC
+        """, candidate_ids)
+
+        latest_rows = cursor.fetchall()
+        seen = set()
+        for row in latest_rows:
+            cid = row["candidate_id"]
+            if cid not in seen:
+                seen.add(cid)
+                if cid in candidate_stats:
+                    candidate_stats[cid]["latest_exam"] = {
+                        "session_id": row["session_id"],
+                        "exam_id": row["exam_id"],
+                        "exam_name": row["exam_name"],
+                        "start_time": row["start_time"],
+                        "end_time": row["end_time"],
+                        "integrity": row["current_integrity"],
+                        "status": row["status"]
+                    }
+                else:
+                    candidate_stats[cid] = {
+                        "latest_exam": {
+                            "session_id": row["session_id"],
+                            "exam_id": row["exam_id"],
+                            "exam_name": row["exam_name"],
+                            "start_time": row["start_time"],
+                            "end_time": row["end_time"],
+                            "integrity": row["current_integrity"],
+                            "status": row["status"]
+                        }
+                    }
+
+    # =========================================================
     # EVIDENCE COUNT
     # =========================================================
 
@@ -1774,8 +1878,132 @@ def admin_dashboard():
 
         alert_percentage=alert_percentage,
 
-        alert_rows=alert_rows
+        alert_rows=alert_rows,
 
+        candidate_stats=candidate_stats
+
+    )
+
+
+
+# ---------------- CANDIDATE FULL ANALYSIS ----------------
+
+@app.route("/admin/candidate/<int:candidate_id>")
+def admin_candidate_analysis(candidate_id):
+
+    if "admin_id" not in session:
+        return redirect(url_for("login_page"))
+
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    # =========================================================
+    # CANDIDATE EXISTS?
+    # =========================================================
+
+    cursor.execute("""
+        SELECT
+            candidate_id,
+            first_name,
+            middle_name,
+            last_name,
+            email,
+            photo_path
+        FROM Candidate
+        WHERE candidate_id = ?
+    """, (candidate_id,))
+
+    candidate = cursor.fetchone()
+
+    if candidate is None:
+        conn.close()
+        return "Candidate not found", 404
+
+    # =========================================================
+    # CANDIDATE STATS
+    # =========================================================
+
+    # Average integrity + total/completed tests
+    cursor.execute("""
+        SELECT
+            AVG(es.current_integrity) as avg_integrity,
+            COUNT(es.session_id) as total_tests,
+            SUM(CASE WHEN es.status = 'Completed' OR es.end_time IS NOT NULL THEN 1 ELSE 0 END) as completed_tests
+        FROM ExamSession es
+        WHERE es.candidate_id = ?
+    """, (candidate_id,))
+
+    stat_row = cursor.fetchone()
+    avg_integrity = stat_row["avg_integrity"]
+    total_tests = stat_row["total_tests"] or 0
+    completed_tests = stat_row["completed_tests"] or 0
+
+    if avg_integrity is None:
+        avg_integrity = None
+    else:
+        avg_integrity = round(avg_integrity, 1)
+
+    # Total violations
+    cursor.execute("""
+        SELECT COUNT(p.penalty_id) as total_violations
+        FROM ExamSession es
+        LEFT JOIN Penalty p ON es.session_id = p.session_id
+        WHERE es.candidate_id = ?
+    """, (candidate_id,))
+
+    violation_row = cursor.fetchone()
+    total_violations = violation_row["total_violations"] or 0
+
+    # Current status (latest session status or "Registered")
+    cursor.execute("""
+        SELECT status
+        FROM ExamSession
+        WHERE candidate_id = ?
+        ORDER BY start_time DESC
+        LIMIT 1
+    """, (candidate_id,))
+
+    status_row = cursor.fetchone()
+    current_status = status_row["status"] if status_row else "Registered"
+
+    # =========================================================
+    # EXAMINATION HISTORY
+    # =========================================================
+    # Every ExamSession for this candidate, newest first
+
+    cursor.execute("""
+        SELECT
+            es.session_id,
+            es.exam_id,
+            e.exam_name,
+            es.start_time,
+            es.end_time,
+            es.current_integrity,
+            es.status
+        FROM ExamSession es
+        LEFT JOIN Exam e ON es.exam_id = e.exam_id
+        WHERE es.candidate_id = ?
+        ORDER BY es.start_time DESC
+    """, (candidate_id,))
+
+    exam_history = cursor.fetchall()
+
+    conn.close()
+
+    # Build stat object for template
+    stats = {
+        "avg_integrity": avg_integrity,
+        "total_tests": total_tests,
+        "completed_tests": completed_tests,
+        "total_violations": total_violations,
+        "current_status": current_status
+    }
+
+    return render_template(
+        "admin_candidate_analysis.html",
+        candidate=candidate,
+        stats=stats,
+        exam_history=exam_history
     )
 
 

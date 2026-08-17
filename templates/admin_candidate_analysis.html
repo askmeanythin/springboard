@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Candidate Analysis</title>
+
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap');
+
+:root{
+    --paper:#f7f6f2;
+    --white:#ffffff;
+    --ink:#252525;
+    --muted:#77746d;
+    --line:#dedcd5;
+    --soft:#efeee9;
+    --dark:#292a27;
+    --green:#557363;
+    --red:#9a5b52;
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"DM Sans", sans-serif;
+    min-height:100vh;
+}
+
+/* ---------------- HEADER ---------------- */
+
+.topbar{
+    height:72px;
+    background:var(--white);
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 38px;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.brand-mark{
+    width:30px;
+    height:30px;
+    border:1px solid var(--dark);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:600;
+}
+
+.brand-name{
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:.2px;
+}
+
+.top-right{
+    display:flex;
+    align-items:center;
+    gap:20px;
+}
+
+.admin-label{
+    font-size:13px;
+    color:var(--muted);
+}
+
+.logout{
+    border:0;
+    background:none;
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13px;
+    cursor:pointer;
+    padding:5px 0;
+    border-bottom:1px solid transparent;
+}
+
+.logout:hover{
+    border-bottom-color:var(--ink);
+}
+
+/* ---------------- PAGE ---------------- */
+
+.page{
+    max-width:1500px;
+    margin:auto;
+    padding:38px;
+}
+
+.page-heading{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    margin-bottom:32px;
+}
+
+.heading-left h1{
+    font-family:"Playfair Display", serif;
+    font-size:38px;
+    font-weight:500;
+    letter-spacing:-.8px;
+}
+
+.heading-left p{
+    margin-top:8px;
+    color:var(--muted);
+    font-size:14px;
+}
+
+.back-label{
+    border:0;
+    background:none;
+    font-family:inherit;
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+    padding:5px 0;
+}
+
+.back-label:hover{
+    color:var(--ink);
+}
+
+/* ---------------- PROFILE ---------------- */
+
+.profile{
+    background:var(--white);
+    border:1px solid var(--line);
+    padding:32px;
+    margin-bottom:38px;
+}
+
+.profile-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding-bottom:25px;
+    border-bottom:1px solid var(--line);
+}
+
+.profile-person{
+    display:flex;
+    align-items:center;
+    gap:18px;
+}
+
+.profile-avatar{
+    width:66px;
+    height:66px;
+    background:var(--soft);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+    font-weight:600;
+}
+
+.profile-name{
+    font-family:"Playfair Display", serif;
+    font-size:28px;
+}
+
+.profile-email{
+    margin-top:5px;
+    font-size:13px;
+    color:var(--muted);
+}
+
+.profile-id{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:3px;
+}
+
+.status{
+    font-size:11px;
+    padding:6px 10px;
+    border:1px solid var(--line);
+    color:var(--green);
+}
+
+/* ---------------- PROFILE STATS ---------------- */
+
+.profile-stats{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    margin-top:25px;
+}
+
+.profile-stat{
+    padding:0 20px 0 0;
+    margin-right:20px;
+    border-right:1px solid var(--line);
+}
+
+.profile-stat:last-child{
+    border:0;
+    margin:0;
+}
+
+.profile-stat-label{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.9px;
+    color:var(--muted);
+}
+
+.profile-stat-value{
+    font-size:28px;
+    margin-top:10px;
+    font-weight:500;
+    letter-spacing:-1px;
+}
+
+/* ---------------- SECTION ---------------- */
+
+.section{
+    background:var(--white);
+    border:1px solid var(--line);
+    padding:32px;
+}
+
+.section-title{
+    font-size:15px;
+    font-weight:600;
+    margin-bottom:20px;
+    padding-bottom:15px;
+    border-bottom:1px solid var(--line);
+}
+
+/* ---------------- EXAM TABLE ---------------- */
+
+.exam-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+.exam-table thead th{
+    text-align:left;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.9px;
+    color:var(--muted);
+    font-weight:600;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+}
+
+.exam-table tbody td{
+    padding:14px;
+    border-bottom:1px solid #eceae5;
+    color:var(--ink);
+}
+
+.exam-table tbody tr:last-child td{
+    border-bottom:0;
+}
+
+.exam-table tbody tr{
+    cursor:pointer;
+    transition:background .15s ease;
+}
+
+.exam-table tbody tr:hover{
+    background:var(--soft);
+}
+
+.exam-session-id{
+    font-weight:500;
+}
+
+.exam-name{
+    color:var(--ink);
+}
+
+.exam-date{
+    color:var(--muted);
+    font-size:12px;
+}
+
+.integrity-high{
+    color:var(--green);
+}
+
+.integrity-medium{
+    color:#9a8560;
+}
+
+.integrity-low{
+    color:var(--red);
+}
+
+.status-badge{
+    font-size:10px;
+    padding:4px 8px;
+    border:1px solid var(--line);
+    color:var(--muted);
+}
+
+/* ---------------- EMPTY ---------------- */
+
+.empty-state{
+    padding:40px;
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+}
+
+/* ---------------- RESPONSIVE ---------------- */
+
+@media(max-width:1000px){
+
+    .profile-stats{
+        grid-template-columns:repeat(2,1fr);
+        gap:20px;
+    }
+
+    .profile-stat{
+        border-right:0;
+        margin-right:0;
+        padding-right:0;
+    }
+
+    .exam-table{
+        display:block;
+        overflow-x:auto;
+        white-space:nowrap;
+    }
+
+}
+
+@media(max-width:650px){
+
+    .topbar{
+        padding:0 18px;
+    }
+
+    .page{
+        padding:25px 18px;
+    }
+
+    .profile-stats{
+        grid-template-columns:1fr;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header class="topbar">
+
+    <div class="brand">
+
+        <div class="brand-mark">
+            EM
+        </div>
+
+        <div class="brand-name">
+            Exam Monitoring
+        </div>
+
+    </div>
+
+    <div class="top-right">
+
+        <span class="admin-label">
+            Administration
+        </span>
+
+        <button class="logout">
+            Logout
+        </button>
+
+    </div>
+
+</header>
+
+
+<main class="page">
+
+
+    <div class="page-heading">
+
+        <div class="heading-left">
+
+            <h1>Candidate Analysis</h1>
+
+            <p>
+                Complete examination profile and history
+            </p>
+
+        </div>
+
+        <button
+            class="back-label"
+            type="button"
+            onclick="window.location.href='/admin/dashboard'"
+        >
+            ← Back to Overview
+        </button>
+
+    </div>
+
+
+    <!-- PROFILE -->
+
+    <section class="profile">
+
+        <div class="profile-header">
+
+            <div class="profile-person">
+
+                <div class="profile-avatar">
+                    {{ candidate.first_name[0]|upper }}{{ candidate.last_name[0]|upper }}
+                </div>
+
+                <div>
+
+                    <div class="profile-name">
+                        {{ candidate.first_name }}
+                        {% if candidate.middle_name %}
+                            {{ candidate.middle_name }}
+                        {% endif %}
+                        {{ candidate.last_name }}
+                    </div>
+
+                    <div class="profile-email">
+                        {{ candidate.email }}
+                    </div>
+
+                    <div class="profile-id">
+                        ID: {{ candidate.candidate_id }}
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="status">
+                {{ stats.current_status }}
+            </div>
+
+        </div>
+
+
+        <div class="profile-stats">
+
+            <div class="profile-stat">
+
+                <div class="profile-stat-label">
+                    Total Tests
+                </div>
+
+                <div class="profile-stat-value">
+                    {{ stats.total_tests }}
+                </div>
+
+            </div>
+
+            <div class="profile-stat">
+
+                <div class="profile-stat-label">
+                    Avg Integrity
+                </div>
+
+                <div class="profile-stat-value">
+                    {% if stats.avg_integrity is not none %}
+                        {{ stats.avg_integrity }}%
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+
+            </div>
+
+            <div class="profile-stat">
+
+                <div class="profile-stat-label">
+                    Violations
+                </div>
+
+                <div class="profile-stat-value">
+                    {{ stats.total_violations }}
+                </div>
+
+            </div>
+
+            <div class="profile-stat">
+
+                <div class="profile-stat-label">
+                    Completed
+                </div>
+
+                <div class="profile-stat-value">
+                    {{ stats.completed_tests }}
+                </div>
+
+            </div>
+
+            <div class="profile-stat">
+
+                <div class="profile-stat-label">
+                    Current Status
+                </div>
+
+                <div class="profile-stat-value" style="font-size:18px; margin-top:14px;">
+                    {{ stats.current_status }}
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- EXAMINATION HISTORY -->
+
+    <section class="section">
+
+        <div class="section-title">
+            Examination History
+        </div>
+
+        {% if exam_history %}
+
+            <table class="exam-table">
+
+                <thead>
+                    <tr>
+                        <th>Session ID</th>
+                        <th>Examination</th>
+                        <th>Date</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Integrity</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for session in exam_history %}
+
+                    <tr>
+
+                        <td class="exam-session-id">
+                            {{ session.session_id }}
+                        </td>
+
+                        <td class="exam-name">
+                            {{ session.exam_name or ("Exam " + session.exam_id|string) }}
+                        </td>
+
+                        <td class="exam-date">
+                            {{ session.start_time.strftime('%Y-%m-%d') if session.start_time else '—' }}
+                        </td>
+
+                        <td>
+                            {{ session.start_time.strftime('%H:%M:%S') if session.start_time else '—' }}
+                        </td>
+
+                        <td>
+                            {{ session.end_time.strftime('%H:%M:%S') if session.end_time else '—' }}
+                        </td>
+
+                        <td>
+                            {% if session.current_integrity is not none %}
+                                {% if session.current_integrity >= 70 %}
+                                    <span class="integrity-high">{{ "%.1f"|format(session.current_integrity) }}%</span>
+                                {% elif session.current_integrity >= 40 %}
+                                    <span class="integrity-medium">{{ "%.1f"|format(session.current_integrity) }}%</span>
+                                {% else %}
+                                    <span class="integrity-low">{{ "%.1f"|format(session.current_integrity) }}%</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="exam-date">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <span class="status-badge">{{ session.status or '—' }}</span>
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <div class="empty-state">
+                No examination sessions recorded.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+</main>
+
+</body>
+</html>

@@ -535,12 +535,6 @@ body{
     align-items:center;
     justify-content:center;
 
-    background:
-        conic-gradient(
-            #985e55 calc({{ alert_percentage }} * 1%),
-            #e8e6df 0
-        );
-
     cursor:pointer;
 
     transition:
@@ -1093,7 +1087,7 @@ body{
             </div>
 
             <div class="summary-value">
-                —
+                {{ alert_count }}
             </div>
 
             <div class="summary-note">
@@ -1139,6 +1133,7 @@ body{
 
                 <div
                     class="user"
+                    data-candidate-id="{{ user.candidate_id }}"
                     data-search="{{ user.first_name }} {{ user.middle_name }} {{ user.last_name }} {{ user.email }}"
                 >
 
@@ -1370,7 +1365,10 @@ body{
 
                     <div class="alert-circle-wrapper">
 
-                        <div class="alert-circle">
+                        <div
+                            class="alert-circle"
+                            style="background: conic-gradient(#985e55 {{ alert_percentage }}%, #e8e6df 0);"
+                        >
 
                             <div class="alert-circle-content">
 
@@ -1424,6 +1422,14 @@ body{
 
                                     </span>
 
+                                </div>
+
+                                <div class="alert-person" style="border-top: 1px solid #eceae5; margin-top: 4px; padding-top: 8px; font-size: 10px; color: var(--muted);">
+                                    <div>Email: {{ alert.email }}</div>
+                                    <div>Session ID: {{ alert.session_id }}</div>
+                                    <div>Status: {{ alert.status }}</div>
+                                    <div>Start: {{ alert.start_time }}</div>
+                                    <div>End: {{ alert.end_time if alert.end_time else '—' }}</div>
                                 </div>
 
                                 {% endfor %}
@@ -1587,13 +1593,26 @@ body{
                                 —
                             </div>
 
+                            <div class="candidate-detail-id" id="detailCandidateId" style="font-size: 11px; color: var(--muted); margin-top: 3px;">
+                                —
+                            </div>
+
                         </div>
 
                     </div>
 
-
-                    <div class="status">
-                        Registered
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                        <div class="status" id="detailStatus">
+                            Registered
+                        </div>
+                        <button
+                            class="back-label"
+                            id="fullAnalysisBtn"
+                            type="button"
+                            style="font-size: 11px; padding: 6px 12px; border: 1px solid var(--line); background: var(--white); color: var(--ink); cursor: pointer; display: none;"
+                        >
+                            Full Analysis
+                        </button>
                     </div>
 
 
@@ -1661,17 +1680,17 @@ body{
                 <div class="candidate-activity">
 
                     <div class="candidate-activity-title">
-                        Current information
+                        Latest Examination
                     </div>
 
 
                     <div class="activity-placeholder">
 
                         <span>
-                            Examination sessions
+                            Examination
                         </span>
 
-                        <span id="activityTests">
+                        <span id="activityExamName">
                             —
                         </span>
 
@@ -1681,7 +1700,33 @@ body{
                     <div class="activity-placeholder">
 
                         <span>
-                            Integrity status
+                            Session ID
+                        </span>
+
+                        <span id="activitySessionId">
+                            —
+                        </span>
+
+                    </div>
+
+
+                    <div class="activity-placeholder">
+
+                        <span>
+                            Start Time
+                        </span>
+
+                        <span id="activityStartTime">
+                            —
+                        </span>
+
+                    </div>
+
+
+                    <div class="activity-placeholder">
+
+                        <span>
+                            Integrity
                         </span>
 
                         <span id="activityIntegrity">
@@ -1694,11 +1739,11 @@ body{
                     <div class="activity-placeholder">
 
                         <span>
-                            Monitoring status
+                            Status
                         </span>
 
-                        <span>
-                            Available
+                        <span id="activityStatus">
+                            —
                         </span>
 
                     </div>
@@ -1717,6 +1762,13 @@ body{
     </section>
 
 </main>
+
+
+<!-- CANDIDATE STATS DATA (passed from backend) -->
+
+<script>
+    window.candidateStats = {{ candidate_stats | tojson }};
+</script>
 
 
 <script>
@@ -1781,6 +1833,20 @@ let selectedCandidate = null;
 
 
 /* =========================================================
+   CANDIDATE DETAIL ELEMENTS (content)
+   ========================================================= */
+
+const detailCandidateId = document.getElementById("detailCandidateId");
+const detailStatus = document.getElementById("detailStatus");
+const fullAnalysisBtn = document.getElementById("fullAnalysisBtn");
+
+const activityExamName = document.getElementById("activityExamName");
+const activitySessionId = document.getElementById("activitySessionId");
+const activityStartTime = document.getElementById("activityStartTime");
+const activityStatus = document.getElementById("activityStatus");
+
+
+/* =========================================================
    OPEN CANDIDATE
    ========================================================= */
 
@@ -1821,6 +1887,8 @@ users.forEach(function(user){
 
         const tests = user.querySelector(".user-tests strong").textContent.trim();
 
+        const candidateId = user.dataset.candidateId;
+
 
         /* Avatar */
 
@@ -1841,21 +1909,94 @@ users.forEach(function(user){
 
         detailEmail.textContent = email;
 
-        detailTests.textContent = tests;
+        detailCandidateId.textContent = candidateId
+            ? "ID: " + candidateId
+            : "—";
 
-        activityTests.textContent = tests;
+        detailTests.textContent = tests;
 
 
         /*
-         * Integrity and violations will be connected
-         * to the database in the next backend step.
+         * Populate real data from candidate_stats.
          */
 
-        detailIntegrity.textContent = "—";
+        const stats = candidateId
+            ? (window.candidateStats && window.candidateStats[candidateId])
+            : null;
 
-        detailViolations.textContent = "—";
+        if(stats){
 
-        activityIntegrity.textContent = "Not calculated";
+            /* Average integrity */
+            detailIntegrity.textContent =
+                stats.avg_integrity !== null && stats.avg_integrity !== undefined
+                    ? stats.avg_integrity + "%"
+                    : "—";
+
+            /* Violations */
+            detailViolations.textContent =
+                stats.total_violations !== undefined
+                    ? stats.total_violations
+                    : "—";
+
+            /* Latest exam */
+            const latest = stats.latest_exam;
+
+            if(latest){
+
+                activityExamName.textContent =
+                    latest.exam_name || ("Exam " + latest.exam_id);
+
+                activitySessionId.textContent =
+                    latest.session_id || "—";
+
+                activityStartTime.textContent =
+                    latest.start_time || "—";
+
+                activityIntegrity.textContent =
+                    latest.integrity !== null && latest.integrity !== undefined
+                        ? latest.integrity + "%"
+                        : "—";
+
+                activityStatus.textContent =
+                    latest.status || "—";
+
+                detailStatus.textContent =
+                    latest.status || "Registered";
+
+            }
+            else{
+
+                activityExamName.textContent = "No exams";
+                activitySessionId.textContent = "—";
+                activityStartTime.textContent = "—";
+                activityIntegrity.textContent = "—";
+                activityStatus.textContent = "—";
+                detailStatus.textContent = "Registered";
+
+            }
+
+            /* Show Full Analysis button */
+            fullAnalysisBtn.style.display = "inline-block";
+            fullAnalysisBtn.onclick = function(){
+                window.location.href =
+                    "/admin/candidate/" + candidateId;
+            };
+
+        }
+        else{
+
+            /* No stats available (shouldn't happen but be safe) */
+            detailIntegrity.textContent = "—";
+            detailViolations.textContent = "—";
+            activityExamName.textContent = "—";
+            activitySessionId.textContent = "—";
+            activityStartTime.textContent = "—";
+            activityIntegrity.textContent = "—";
+            activityStatus.textContent = "—";
+            detailStatus.textContent = "Registered";
+            fullAnalysisBtn.style.display = "none";
+
+        }
 
 
         /* Switch views */
