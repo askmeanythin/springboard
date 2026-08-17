@@ -563,7 +563,7 @@ body{
 
                     {% for session in exam_history %}
 
-                    <tr>
+                    <tr onclick="window.location.href='/admin/exam/{{ session.session_id }}'" style="cursor: pointer;">
 
                         <td class="exam-session-id">
                             {{ session.session_id }}

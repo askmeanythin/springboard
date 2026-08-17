@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Exam Result - Session {{ exam_session.session_id }}</title>
+
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap');
+
+:root{
+    --paper:#f7f6f2;
+    --white:#ffffff;
+    --ink:#252525;
+    --muted:#77746d;
+    --line:#dedcd5;
+    --soft:#efeee9;
+    --dark:#292a27;
+    --green:#557363;
+    --red:#9a5b52;
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"DM Sans", sans-serif;
+    min-height:100vh;
+}
+
+/* ---------------- HEADER ---------------- */
+
+.topbar{
+    height:72px;
+    background:var(--white);
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 38px;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.brand-mark{
+    width:30px;
+    height:30px;
+    border:1px solid var(--dark);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:600;
+}
+
+.brand-name{
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:.2px;
+}
+
+.top-right{
+    display:flex;
+    align-items:center;
+    gap:20px;
+}
+
+.admin-label{
+    font-size:13px;
+    color:var(--muted);
+}
+
+.logout{
+    border:0;
+    background:none;
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13px;
+    cursor:pointer;
+    padding:5px 0;
+    border-bottom:1px solid transparent;
+}
+
+.logout:hover{
+    border-bottom-color:var(--ink);
+}
+
+/* ---------------- PAGE ---------------- */
+
+.page{
+    max-width:1100px;
+    margin:auto;
+    padding:38px;
+}
+
+.page-heading{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    margin-bottom:32px;
+}
+
+.heading-left h1{
+    font-family:"Playfair Display", serif;
+    font-size:38px;
+    font-weight:500;
+    letter-spacing:-.8px;
+}
+
+.heading-left p{
+    margin-top:8px;
+    color:var(--muted);
+    font-size:14px;
+}
+
+.back-label{
+    border:0;
+    background:none;
+    font-family:inherit;
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+    padding:5px 0;
+}
+
+.back-label:hover{
+    color:var(--ink);
+}
+
+/* ---------------- RESULT CARD ---------------- */
+
+.result-card{
+    background:var(--white);
+    border:1px solid var(--line);
+    padding:40px;
+}
+
+.result-title{
+    font-family:"Playfair Display", serif;
+    font-size:24px;
+    margin-bottom:30px;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--line);
+}
+
+/* ---------------- RESULT GRID ---------------- */
+
+.result-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:24px;
+}
+
+.result-item{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.result-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.9px;
+    color:var(--muted);
+    font-weight:600;
+}
+
+.result-value{
+    font-size:18px;
+    font-weight:500;
+    color:var(--ink);
+}
+
+.integrity-high{
+    color:var(--green);
+}
+
+.integrity-medium{
+    color:#9a8560;
+}
+
+.integrity-low{
+    color:var(--red);
+}
+
+.status-badge{
+    display:inline-block;
+    font-size:12px;
+    padding:4px 10px;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-weight:500;
+}
+
+/* ---------------- INTEGRITY TIMELINE ---------------- */
+
+.timeline-section{
+    background:var(--white);
+    border:1px solid var(--line);
+    padding:40px;
+    margin-top:38px;
+}
+
+.timeline-title{
+    font-family:"Playfair Display", serif;
+    font-size:24px;
+    margin-bottom:30px;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--line);
+}
+
+.timeline{
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+}
+
+.timeline-event{
+    padding:20px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:8px;
+    position:relative;
+    padding-left:50px;
+}
+
+.timeline-event::before{
+    content:'';
+    position:absolute;
+    left:16px;
+    top:20px;
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    background:var(--white);
+    border:2px solid var(--muted);
+}
+
+.timeline-event.initial::before{
+    border-color:var(--green);
+    background:var(--green);
+}
+
+.timeline-event.deduction::before{
+    border-color:var(--red);
+    background:var(--red);
+}
+
+.timeline-event-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:12px;
+}
+
+.timeline-event-time{
+    font-family:"DM Sans", sans-serif;
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+    white-space:nowrap;
+}
+
+.timeline-event-type{
+    font-size:15px;
+    font-weight:500;
+    color:var(--muted);
+}
+
+.timeline-event-body{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.timeline-meta{
+    display:flex;
+    flex-wrap:wrap;
+    gap:24px;
+    align-items:center;
+}
+
+.timeline-meta-item{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+}
+
+.timeline-meta-label{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+    color:var(--muted);
+    font-weight:600;
+}
+
+.timeline-meta-value{
+    font-size:14px;
+    font-weight:500;
+}
+
+.timeline-penalty{
+    color:var(--red);
+    font-weight:600;
+}
+
+.timeline-integrity{
+    font-weight:600;
+}
+
+.timeline-integrity.high{
+    color:var(--green);
+}
+
+.timeline-integrity.medium{
+    color:#9a8560;
+}
+
+.timeline-integrity.low{
+    color:var(--red);
+}
+
+.timeline-screenshot{
+    margin-top:12px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    overflow:hidden;
+    background:var(--white);
+}
+
+.timeline-screenshot img{
+    display:block;
+    max-width:100%;
+    height:auto;
+    max-height:400px;
+    width:auto;
+}
+
+.timeline-screenshot-caption{
+    padding:8px 12px;
+    font-size:11px;
+    color:var(--muted);
+    background:var(--soft);
+    border-top:1px solid var(--line);
+}
+
+.empty-state{
+    padding:40px;
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+}
+
+/* ---------------- RESPONSIVE ---------------- */
+
+@media(max-width:1000px){
+    .result-grid{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:650px){
+    .topbar{
+        padding:0 18px;
+    }
+
+    .page{
+        padding:25px 18px;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<header class="topbar">
+
+    <div class="brand">
+
+        <div class="brand-mark">
+            EM
+        </div>
+
+        <div class="brand-name">
+            Exam Monitoring
+        </div>
+
+    </div>
+
+    <div class="top-right">
+
+        <span class="admin-label">
+            Administration
+        </span>
+
+        <button class="logout">
+            Logout
+        </button>
+
+    </div>
+
+</header>
+
+
+<main class="page">
+
+
+    <div class="page-heading">
+
+        <div class="heading-left">
+
+            <h1>Exam Result</h1>
+
+            <p>
+                Session details for examination review
+            </p>
+
+        </div>
+
+        <button
+            class="back-label"
+            type="button"
+            onclick="window.history.back()"
+        >
+            ← Back
+        </button>
+
+    </div>
+
+
+    <section class="result-card">
+
+        <div class="result-title">
+            Examination Summary
+        </div>
+
+        <div class="result-grid">
+
+            <div class="result-item">
+                <div class="result-label">Candidate Name</div>
+                <div class="result-value">
+                    {{ exam_session.first_name }}
+                    {% if exam_session.middle_name %}{{ exam_session.middle_name }}{% endif %}
+                    {{ exam_session.last_name }}
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Exam Name</div>
+                <div class="result-value">
+                    {{ exam_session.exam_name or ("Exam " + exam_session.exam_id|string) }}
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Session ID</div>
+                <div class="result-value">
+                    {{ exam_session.session_id }}
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Exam Date</div>
+                <div class="result-value">
+                    {{ exam_session.start_time.strftime('%Y-%m-%d') if exam_session.start_time else '—' }}
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Start Time</div>
+                <div class="result-value">
+                    {{ exam_session.start_time.strftime('%H:%M:%S') if exam_session.start_time else '—' }}
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">End Time</div>
+                <div class="result-value">
+                    {{ exam_session.end_time.strftime('%H:%M:%S') if exam_session.end_time else '—' }}
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Integrity Score</div>
+                <div class="result-value">
+                    {% if exam_session.current_integrity is not none %}
+                        {% if exam_session.current_integrity >= 70 %}
+                            <span class="integrity-high">{{ "%.1f"|format(exam_session.current_integrity) }}%</span>
+                        {% elif exam_session.current_integrity >= 40 %}
+                            <span class="integrity-medium">{{ "%.1f"|format(exam_session.current_integrity) }}%</span>
+                        {% else %}
+                            <span class="integrity-low">{{ "%.1f"|format(exam_session.current_integrity) }}%</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color:var(--muted);">—</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Final Status</div>
+                <div class="result-value">
+                    <span class="status-badge">{{ exam_session.status or '—' }}</span>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- INTEGRITY TIMELINE -->
+
+    <section class="timeline-section">
+
+        <div class="timeline-title">
+            Integrity Timeline
+        </div>
+
+        {% set deductions = timeline | selectattr('delta', 'lt', 0) | list %}
+{% if deductions %}
+
+            <div class="timeline">
+
+                {% for event in timeline %}
+
+                <div class="timeline-event
+                    {% if loop.first %}initial
+                    {% elif event.delta < 0 %}deduction
+                    {% else %}neutral
+                    {% endif %}
+                ">
+
+                    <div class="timeline-event-header">
+
+                        <div class="timeline-event-time">
+                            {{ event.recorded_at.strftime('%H:%M:%S') if event.recorded_at else '—' }}
+                        </div>
+
+                        <div class="timeline-event-type">
+                            {{ event.event_subtype or event.event_type }}
+                        </div>
+
+                    </div>
+
+                    <div class="timeline-event-body">
+
+                        <div class="timeline-meta">
+
+                            <div class="timeline-meta-item">
+                                <div class="timeline-meta-label">Points Deducted</div>
+                                <div class="timeline-meta-value {% if event.delta < 0 %}timeline-penalty{% endif %}">
+                                    {% if event.delta < 0 %}
+                                        −{{ event.delta * -1 }} points
+                                    {% else %}
+                                        0 points
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="timeline-meta-item">
+                                <div class="timeline-meta-label">Integrity After</div>
+                                <div class="timeline-meta-value timeline-integrity
+                                    {% if event.integrity_after is not none %}
+                                        {% if event.integrity_after >= 70 %}high
+                                        {% elif event.integrity_after >= 40 %}medium
+                                        {% else %}low
+                                        {% endif %}
+                                    {% endif %}
+                                ">
+                                    {% if event.integrity_after is not none %}
+                                        {{ event.integrity_after }}%
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    {% if event.screenshot_path %}
+                    <div class="timeline-screenshot">
+                        <img src="/screenshots/{{ event.screenshot_path }}" alt="Evidence screenshot">
+                        <div class="timeline-screenshot-caption">
+                            Evidence: {{ event.screenshot_path.split('/')[-1] }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+                No integrity deductions recorded for this examination.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+</main>
+
+</body>
+</html>

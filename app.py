@@ -1036,7 +1036,8 @@ def save_candidate_photo():
 @app.route("/screenshots/<path:screenshot_path>")
 def screenshot_file(screenshot_path):
 
-    if "candidate_id" not in session:
+    # Allow both candidate and admin access
+    if "candidate_id" not in session and "admin_id" not in session:
         return redirect(url_for("login_page"))
 
     return send_from_directory(SCREENSHOT_FOLDER, screenshot_path)
@@ -2006,6 +2007,74 @@ def admin_candidate_analysis(candidate_id):
         exam_history=exam_history
     )
 
+
+
+# ---------------- EXAM RESULT DETAIL ----------------
+
+@app.route("/admin/exam/<int:session_id>")
+def admin_exam_detail(session_id):
+
+    if "admin_id" not in session:
+        return redirect(url_for("login_page"))
+
+    conn = db_connect()
+    cursor = conn.cursor()
+
+    # Get exam session details with candidate and exam info
+    cursor.execute("""
+        SELECT
+            es.session_id,
+            es.candidate_id,
+            es.exam_id,
+            es.start_time,
+            es.end_time,
+            es.current_integrity,
+            es.status,
+            c.first_name,
+            c.middle_name,
+            c.last_name,
+            e.exam_name
+        FROM ExamSession es
+        JOIN Candidate c ON es.candidate_id = c.candidate_id
+        LEFT JOIN Exam e ON es.exam_id = e.exam_id
+        WHERE es.session_id = ?
+    """, (session_id,))
+
+    exam_session = cursor.fetchone()
+
+    # Get integrity timeline for this session from IntegrityHistory
+    cursor.execute("""
+        SELECT
+            ih.integrity_history_id,
+            ih.event_id,
+            ih.integrity_before,
+            ih.integrity_after,
+            ih.delta,
+            ih.recorded_at,
+            me.event_type,
+            me.event_subtype,
+            me.event_timestamp,
+            p.penalty_points,
+            s.screenshot_path
+        FROM IntegrityHistory ih
+        LEFT JOIN MonitoringEvent me ON me.event_id = ih.event_id
+        LEFT JOIN Penalty p ON p.event_id = me.event_id
+        LEFT JOIN Screenshot s ON s.event_id = me.event_id
+        WHERE ih.session_id = ?
+        ORDER BY ih.recorded_at ASC
+    """, (session_id,))
+
+    timeline_rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    if exam_session is None:
+        return "Exam session not found", 404
+
+    return render_template(
+        "admin_exam_detail.html",
+        exam_session=exam_session,
+        timeline=timeline_rows
+    )
 
 
 # ---------------- NORMAL DASHBOARD ----------------
