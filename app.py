@@ -78,11 +78,13 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 LOG_FOLDER = "logs"
 SCREENSHOT_FOLDER = "screenshots"
+PHOTO_FOLDER = "photos"
 DB_PATH = "database/exam.db"
 DEFAULT_EXAM_NAME = "Default Exam"
 
 os.makedirs(LOG_FOLDER, exist_ok=True)
 os.makedirs(SCREENSHOT_FOLDER, exist_ok=True)
+os.makedirs(PHOTO_FOLDER, exist_ok=True)
 
 FACE_MISSING_THRESHOLD = 5
 MULTIPLE_FACE_THRESHOLD = 5
@@ -121,9 +123,16 @@ def ensure_production_schema():
             admin_id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP
         )
     """)
+
+    # Add last_login column if missing (for existing installations)
+    cursor.execute("PRAGMA table_info('Admin')")
+    admin_columns = {row[1] for row in cursor.fetchall()}
+    if "last_login" not in admin_columns:
+        cursor.execute("ALTER TABLE Admin ADD COLUMN last_login TIMESTAMP")
 
 
     cursor.execute("""
@@ -1113,6 +1122,16 @@ def screenshot_file(screenshot_path):
 
     return send_from_directory(SCREENSHOT_FOLDER, screenshot_path)
 
+
+@app.route("/photos/<path:photo_path>")
+def photo_file(photo_path):
+
+    # Allow both candidate and admin access
+    if "candidate_id" not in session and "admin_id" not in session:
+        return redirect(url_for("login_page"))
+
+    return send_from_directory(PHOTO_FOLDER, photo_path)
+
 # ---------------- LOGIN PAGE ----------------
 
 @app.route("/login")
@@ -1173,9 +1192,26 @@ def login():
 
         if check_password_hash(admin[2], password):
 
+            # Fetch the PREVIOUS last_login BEFORE updating it
+            cursor.execute(
+                "SELECT last_login FROM Admin WHERE admin_id=?",
+                (admin[0],)
+            )
+            prev_login_row = cursor.fetchone()
+            previous_last_login = prev_login_row["last_login"] if prev_login_row else None
+
+            # Update last_login timestamp to current time (for next login)
+            cursor.execute(
+                "UPDATE Admin SET last_login=? WHERE admin_id=?",
+                (iso_now(), admin[0])
+            )
+            conn.commit()
+
             session.clear()
             session["admin_id"] = admin[0]
             session["admin_email"] = admin[1]
+            # Store previous login to display on dashboard
+            session["admin_prev_login"] = previous_last_login
 
             conn.close()
             session.pop("login_captcha", None)
@@ -1482,6 +1518,7 @@ def admin_dashboard():
             c.middle_name,
             c.last_name,
             c.email,
+            c.photo_path,
 
             COUNT(es.session_id) AS total_tests
 
@@ -1670,6 +1707,7 @@ def admin_dashboard():
         cursor.execute(f"""
             SELECT
                 c.candidate_id,
+                c.photo_path,
                 AVG(es.current_integrity) as avg_integrity,
                 COUNT(es.session_id) as total_tests,
                 SUM(CASE WHEN es.status = 'Completed' OR es.end_time IS NOT NULL THEN 1 ELSE 0 END) as completed_tests,
@@ -1683,6 +1721,7 @@ def admin_dashboard():
         integrity_rows = cursor.fetchall()
         for row in integrity_rows:
             candidate_stats[row["candidate_id"]] = {
+                "photo_path": row["photo_path"],
                 "avg_integrity": round(row["avg_integrity"], 1) if row["avg_integrity"] is not None else None,
                 "total_tests": row["total_tests"] or 0,
                 "completed_tests": row["completed_tests"] or 0,
@@ -1921,6 +1960,12 @@ def admin_dashboard():
                 )
 
 
+    # =========================================================
+    # ADMIN LAST LOGIN (use previous login from session)
+    # =========================================================
+
+    admin_last_login = session.get("admin_prev_login")
+
     conn.close()
 
 
@@ -1962,7 +2007,9 @@ def admin_dashboard():
 
         alert_rows=alert_rows,
 
-        candidate_stats=candidate_stats
+        candidate_stats=candidate_stats,
+
+        admin_last_login=admin_last_login
 
     )
 

@@ -7,8 +7,161 @@
 
     <title>Take Test</title>
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap');
+
+        :root{
+            --paper:#f7f6f2;
+            --white:#ffffff;
+            --ink:#252525;
+            --muted:#77746d;
+            --line:#dedcd5;
+            --soft:#efeee9;
+            --dark:#292a27;
+            --green:#557363;
+            --red:#9a5b52;
+        }
+
+        *{
+            box-sizing:border-box;
+            margin:0;
+            padding:0;
+        }
+
+        body{
+            background:var(--paper);
+            color:var(--ink);
+            font-family:"DM Sans", sans-serif;
+            min-height:100vh;
+        }
+
+        .entry-page{
+            min-height:100vh;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:40px 20px;
+        }
+
+        .entry-box{
+            width:100%;
+            max-width:480px;
+            background:var(--white);
+            border:1px solid var(--line);
+            border-radius:12px;
+            padding:48px 40px;
+            text-align:center;
+        }
+
+        .project-label{
+            font-size:11px;
+            text-transform:uppercase;
+            letter-spacing:1.1px;
+            color:var(--muted);
+            font-weight:600;
+            margin-bottom:16px;
+        }
+
+        h1{
+            font-family:"Playfair Display", serif;
+            font-size:36px;
+            font-weight:500;
+            line-height:1.2;
+            letter-spacing:-.5px;
+            margin-bottom:12px;
+        }
+
+        .entry-description{
+            max-width:380px;
+            margin:0 auto 32px;
+            color:var(--muted);
+            font-size:15px;
+            line-height:1.6;
+        }
+
+        .entry-buttons{
+            display:flex;
+            justify-content:center;
+            gap:12px;
+            margin-bottom:28px;
+        }
+
+        .test-btn,
+        .register-btn{
+            min-width:140px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            height:44px;
+            padding:0 24px;
+            font-family:inherit;
+            font-size:13px;
+            font-weight:600;
+            text-decoration:none;
+            border:1px solid var(--ink);
+            border-radius:8px;
+            cursor:pointer;
+            transition:background .15s ease, color .15s ease, border-color .15s ease;
+        }
+
+        .test-btn{
+            background:var(--ink);
+            color:var(--white);
+        }
+
+        .test-btn:hover{
+            background:var(--white);
+            color:var(--ink);
+        }
+
+        .register-btn{
+            background:var(--white);
+            color:var(--ink);
+        }
+
+        .register-btn:hover{
+            background:var(--soft);
+            border-color:var(--dark);
+        }
+
+        .back-link{
+            display:inline-block;
+            font-size:13px;
+            color:var(--muted);
+            text-decoration:none;
+            padding:4px 0;
+            border-bottom:1px solid transparent;
+            transition:border-color .15s ease, color .15s ease;
+        }
+
+        .back-link:hover{
+            color:var(--ink);
+            border-bottom-color:var(--ink);
+        }
+
+        @media (max-width:550px){
+            .entry-page{
+                padding:24px 14px;
+            }
+
+            .entry-box{
+                padding:36px 24px;
+            }
+
+            h1{
+                font-size:30px;
+            }
+
+            .entry-buttons{
+                flex-direction:column;
+            }
+
+            .test-btn,
+            .register-btn{
+                width:100%;
+            }
+        }
+    </style>
 </head>
 
 <body>
