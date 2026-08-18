@@ -7,8 +7,154 @@
 
     <title>Online Exam Monitoring & Integrity Analysis</title>
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap');
+
+        :root{
+            --paper:#f7f6f2;
+            --white:#ffffff;
+            --ink:#252525;
+            --muted:#77746d;
+            --line:#dedcd5;
+            --soft:#efeee9;
+            --dark:#292a27;
+            --green:#557363;
+            --red:#9a5b52;
+        }
+
+        *{
+            box-sizing:border-box;
+            margin:0;
+            padding:0;
+        }
+
+        body{
+            background:var(--paper);
+            color:var(--ink);
+            font-family:"DM Sans", sans-serif;
+            min-height:100vh;
+        }
+
+        .landing{
+            min-height:100vh;
+            display:flex;
+            flex-direction:column;
+            justify-content:space-between;
+            padding:70px 10% 35px;
+            max-width:1500px;
+            margin:0 auto;
+        }
+
+        .content{
+            max-width:800px;
+        }
+
+        .project-label{
+            font-size:11px;
+            text-transform:uppercase;
+            letter-spacing:1.1px;
+            color:var(--muted);
+            font-weight:600;
+            margin-bottom:18px;
+        }
+
+        h1{
+            font-family:"Playfair Display", serif;
+            font-size:55px;
+            font-weight:500;
+            line-height:1.1;
+            letter-spacing:-1px;
+            margin-bottom:22px;
+        }
+
+        h1 span{
+            display:block;
+            color:var(--muted);
+        }
+
+        .description{
+            max-width:650px;
+            color:var(--muted);
+            font-size:18px;
+            line-height:1.6;
+            margin-bottom:30px;
+        }
+
+        .tech-stack > p{
+            font-size:11px;
+            text-transform:uppercase;
+            letter-spacing:1.1px;
+            color:var(--muted);
+            font-weight:600;
+            margin-bottom:12px;
+        }
+
+        .tech-list{
+            display:flex;
+            flex-wrap:wrap;
+            gap:8px;
+            margin-bottom:35px;
+        }
+
+        .tech-list span{
+            background:var(--white);
+            padding:8px 14px;
+            border:1px solid var(--line);
+            color:var(--ink);
+            font-size:13px;
+            font-weight:500;
+        }
+
+        .test-btn{
+            display:inline-block;
+            background:var(--ink);
+            color:var(--white);
+            text-decoration:none;
+            padding:14px 30px;
+            font-family:inherit;
+            font-size:13px;
+            font-weight:600;
+            cursor:pointer;
+            border:1px solid var(--ink);
+            transition:background .15s ease, color .15s ease;
+        }
+
+        .test-btn:hover{
+            background:var(--white);
+            color:var(--ink);
+        }
+
+        footer{
+            border-top:1px solid var(--line);
+            padding-top:20px;
+        }
+
+        footer p{
+            color:var(--muted);
+            font-size:13px;
+            margin-bottom:5px;
+        }
+
+        footer h3{
+            font-family:"Playfair Display", serif;
+            font-size:16px;
+            font-weight:500;
+        }
+
+        @media (max-width:700px){
+            .landing{
+                padding:45px 7% 25px;
+            }
+
+            h1{
+                font-size:38px;
+            }
+
+            .description{
+                font-size:16px;
+            }
+        }
+    </style>
 </head>
 
 <body>

@@ -1,277 +1,608 @@
 <!DOCTYPE html>
-
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-```
-<title>Candidate Registration</title>
+    <title>Candidate Registration</title>
 
-<link rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}">
-```
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap');
 
+        :root {
+            --paper: #f7f6f2;
+            --white: #ffffff;
+            --ink: #252525;
+            --muted: #77746d;
+            --line: #dedcd5;
+            --soft: #efeee9;
+            --dark: #292a27;
+            --green: #557363;
+            --red: #9a5b52;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--paper);
+            color: var(--ink);
+            font-family: "DM Sans", sans-serif;
+            min-height: 100vh;
+        }
+
+        .register-page {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .register-container {
+            width: 100%;
+            max-width: 520px;
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 48px 40px;
+        }
+
+        .register-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .project-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.1px;
+            color: var(--muted);
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            font-family: "Playfair Display", serif;
+            font-size: 36px;
+            font-weight: 500;
+            line-height: 1.2;
+            letter-spacing: -.5px;
+            margin-bottom: 12px;
+        }
+
+        .register-description {
+            max-width: 440px;
+            margin: 0 auto;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .register-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .name-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .required {
+            color: var(--red);
+            margin-left: 2px;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"] {
+            height: 48px;
+            padding: 0 16px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--ink);
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        .form-group input::placeholder {
+            color: var(--muted);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--ink);
+            box-shadow: 0 0 0 3px rgba(37, 37, 37, 0.08);
+        }
+
+        .form-group input:disabled {
+            background: var(--soft);
+            color: var(--muted);
+        }
+
+        .password-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .password-field {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .password-field input {
+            width: 100%;
+            padding-right: 52px;
+        }
+
+        .password-eye {
+            position: absolute;
+            right: 12px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            background: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 0;
+            transition: color .15s ease;
+        }
+
+        .password-eye:hover {
+            color: var(--ink);
+        }
+
+        .password-eye svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .eye-closed {
+            display: none;
+        }
+
+        .captcha-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .captcha-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .captcha-code {
+            min-width: 100px;
+            height: 48px;
+            background: var(--soft);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "DM Sans", sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 4px;
+            color: var(--ink);
+            user-select: none;
+        }
+
+        .captcha-row input {
+            flex: 1;
+            height: 48px;
+            padding: 0 16px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--ink);
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        .captcha-row input:focus {
+            outline: none;
+            border-color: var(--ink);
+            box-shadow: 0 0 0 3px rgba(37, 37, 37, 0.08);
+        }
+
+        .captcha-help {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .register-submit {
+            height: 48px;
+            padding: 0 24px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            background: var(--ink);
+            color: var(--white);
+            border: 1px solid var(--ink);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+            margin-top: 8px;
+        }
+
+        .register-submit:hover {
+            background: var(--white);
+            color: var(--ink);
+        }
+
+        .register-submit:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(37, 37, 37, 0.15);
+        }
+
+        .register-footer {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+        }
+
+        .register-footer p {
+            font-size: 14px;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .register-footer a {
+            color: var(--ink);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px solid var(--ink);
+            padding-bottom: 2px;
+            transition: color .15s ease, border-color .15s ease;
+        }
+
+        .register-footer a:hover {
+            color: var(--muted);
+            border-bottom-color: var(--muted);
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--muted);
+            text-decoration: none;
+            padding: 4px 0;
+            border-bottom: 1px solid transparent;
+            transition: border-color .15s ease, color .15s ease;
+        }
+
+        .back-link:hover {
+            color: var(--ink);
+            border-bottom-color: var(--ink);
+        }
+
+        @media (max-width: 600px) {
+            .register-page {
+                padding: 24px 14px;
+            }
+
+            .register-container {
+                padding: 36px 24px;
+            }
+
+            h1 {
+                font-size: 30px;
+            }
+
+            .name-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .password-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .captcha-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .captcha-code {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-```
-<main class="register-page">
+    <main class="register-page">
 
-    <div class="register-container">
+        <div class="register-container">
 
-        <div class="register-header">
+            <div class="register-header">
 
-            <p class="project-label">CANDIDATE REGISTRATION</p>
+                <p class="project-label">CANDIDATE REGISTRATION</p>
 
-            <h1>Create Your Account</h1>
+                <h1>Create Your Account</h1>
 
-            <p class="register-description">
-                Enter your details to register for the online examination.
-            </p>
-
-        </div>
-
-        <form action="{{ url_for('register') }}"
-              method="POST"
-              class="register-form">
-
-            <div class="name-row">
-
-                <div class="form-group">
-
-                    <label for="first_name">
-                        First Name <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="text"
-                        id="first_name"
-                        name="first_name"
-                        placeholder="First name"
-                        required
-                    >
-
-                </div>
-
-                <div class="form-group">
-
-                    <label for="middle_name">
-                        Middle Name
-                    </label>
-
-                    <input
-                        type="text"
-                        id="middle_name"
-                        name="middle_name"
-                        placeholder="Middle name"
-                    >
-
-                </div>
-
-                <div class="form-group">
-
-                    <label for="last_name">
-                        Last Name <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="text"
-                        id="last_name"
-                        name="last_name"
-                        placeholder="Last name"
-                        required
-                    >
-
-                </div>
-
-            </div>
-
-            <div class="form-group">
-
-                <label for="email">
-                    Email Address <span class="required">*</span>
-                </label>
-
-                <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    placeholder="Enter your email address"
-                    required
-                >
-
-            </div>
-
-            <div class="password-row">
-
-                <div class="form-group">
-
-                    <label for="password">
-                        Password <span class="required">*</span>
-                    </label>
-
-                    <div class="password-field">
-
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            placeholder="Create password"
-                            required
-                        >
-
-                        <button
-                            type="button"
-                            class="password-eye"
-                            onclick="togglePassword(this)"
-                            aria-label="Show password"
-                        >
-
-                            <svg class="eye-open"
-                                 xmlns="http://www.w3.org/2000/svg"
-                                 width="20"
-                                 height="20"
-                                 viewBox="0 0 24 24"
-                                 fill="none"
-                                 stroke="currentColor"
-                                 stroke-width="2"
-                                 stroke-linecap="round"
-                                 stroke-linejoin="round">
-
-                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-
-                            </svg>
-
-                            <svg class="eye-closed"
-                                 xmlns="http://www.w3.org/2000/svg"
-                                 width="20"
-                                 height="20"
-                                 viewBox="0 0 24 24"
-                                 fill="none"
-                                 stroke="currentColor"
-                                 stroke-width="2"
-                                 stroke-linecap="round"
-                                 stroke-linejoin="round">
-
-                                <path d="M3 3l18 18"></path>
-                                <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
-                                <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.1 3.2"></path>
-                                <path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 8 10 8a9.8 9.8 0 0 0 4.1-.9"></path>
-
-                            </svg>
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-                <div class="form-group">
-
-                    <label for="confirm_password">
-                        Confirm Password <span class="required">*</span>
-                    </label>
-
-                    <input
-                        type="password"
-                        id="confirm_password"
-                        name="confirm_password"
-                        placeholder="Confirm password"
-                        required
-                    >
-
-                </div>
-
-            </div>
-
-            <div class="captcha-section">
-
-                <label for="captcha">
-                    Security Verification <span class="required">*</span>
-                </label>
-
-                <div class="captcha-row">
-
-                    <div class="captcha-code">
-                        {{ captcha }}
-                    </div>
-
-                    <input
-                        type="text"
-                        id="captcha"
-                        name="captcha"
-                        placeholder="Enter CAPTCHA"
-                        autocomplete="off"
-                        required
-                    >
-
-                </div>
-
-                <p class="captcha-help">
-                    Enter the characters shown above.
+                <p class="register-description">
+                    Enter your details to register for the online examination.
                 </p>
 
             </div>
 
-            <button type="submit" class="register-submit">
-                Register Candidate
-            </button>
+            <form action="{{ url_for('register') }}"
+                  method="POST"
+                  class="register-form">
 
-        </form>
+                <div class="name-row">
 
-        <div class="register-footer">
+                    <div class="form-group">
 
-            <p>
-                Already registered?
-                <a href="{{ url_for('login_page') }}">Login here</a>
-            </p>
+                        <label for="first_name">
+                            First Name <span class="required">*</span>
+                        </label>
 
-            <a href="{{ url_for('exam_entry') }}" class="back-link">
-                ← Back to Exam Portal
-            </a>
+                        <input
+                            type="text"
+                            id="first_name"
+                            name="first_name"
+                            placeholder="First name"
+                            required
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="middle_name">
+                            Middle Name
+                        </label>
+
+                        <input
+                            type="text"
+                            id="middle_name"
+                            name="middle_name"
+                            placeholder="Middle name"
+                        >
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="last_name">
+                            Last Name <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="text"
+                            id="last_name"
+                            name="last_name"
+                            placeholder="Last name"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+                <div class="form-group">
+
+                    <label for="email">
+                        Email Address <span class="required">*</span>
+                    </label>
+
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        placeholder="Enter your email address"
+                        required
+                    >
+
+                </div>
+
+                <div class="password-row">
+
+                    <div class="form-group">
+
+                        <label for="password">
+                            Password <span class="required">*</span>
+                        </label>
+
+                        <div class="password-field">
+
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                placeholder="Create password"
+                                required
+                            >
+
+                            <button
+                                type="button"
+                                class="password-eye"
+                                onclick="togglePassword(this)"
+                                aria-label="Show password">
+
+                                <svg class="eye-open"
+                                     xmlns="http://www.w3.org/2000/svg"
+                                     width="20"
+                                     height="20"
+                                     viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor"
+                                     stroke-width="2"
+                                     stroke-linecap="round"
+                                     stroke-linejoin="round">
+
+                                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+
+                                </svg>
+
+                                <svg class="eye-closed"
+                                     xmlns="http://www.w3.org/2000/svg"
+                                     width="20"
+                                     height="20"
+                                     viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor"
+                                     stroke-width="2"
+                                     stroke-linecap="round"
+                                     stroke-linejoin="round">
+
+                                    <path d="M3 3l18 18"></path>
+                                    <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path>
+                                    <path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.1 3.2"></path>
+                                    <path d="M6.6 6.6C3.6 8.6 2 12 2 12s3.5 8 10 8a9.8 9.8 0 0 0 4.1-.9"></path>
+
+                                </svg>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                    <div class="form-group">
+
+                        <label for="confirm_password">
+                            Confirm Password <span class="required">*</span>
+                        </label>
+
+                        <input
+                            type="password"
+                            id="confirm_password"
+                            name="confirm_password"
+                            placeholder="Confirm password"
+                            required
+                        >
+
+                    </div>
+
+                </div>
+
+                <div class="captcha-section">
+
+                    <label for="captcha">
+                        Security Verification <span class="required">*</span>
+                    </label>
+
+                    <div class="captcha-row">
+
+                        <div class="captcha-code">
+                            {{ captcha }}
+                        </div>
+
+                        <input
+                            type="text"
+                            id="captcha"
+                            name="captcha"
+                            placeholder="Enter CAPTCHA"
+                            autocomplete="off"
+                            required
+                        >
+
+                    </div>
+
+                    <p class="captcha-help">
+                        Enter the characters shown above.
+                    </p>
+
+                </div>
+
+                <button type="submit" class="register-submit">
+                    Register Candidate
+                </button>
+
+            </form>
+
+            <div class="register-footer">
+
+                <p>
+                    Already registered?
+                    <a href="{{ url_for('login_page') }}">Login here</a>
+                </p>
+
+                <a href="{{ url_for('exam_entry') }}" class="back-link">
+                    ← Back to Exam Portal
+                </a>
+
+            </div>
 
         </div>
 
-    </div>
+    </main>
 
-</main>
+    <script>
 
-<script>
+        function togglePassword(button) {
 
-    function togglePassword(button) {
+            const passwordInput = document.getElementById("password");
+            const eyeOpen = button.querySelector(".eye-open");
+            const eyeClosed = button.querySelector(".eye-closed");
 
-        const passwordInput = document.getElementById("password");
-        const eyeOpen = button.querySelector(".eye-open");
-        const eyeClosed = button.querySelector(".eye-closed");
+            if (passwordInput.type === "password") {
 
-        if (passwordInput.type === "password") {
+                passwordInput.type = "text";
 
-            passwordInput.type = "text";
+                eyeOpen.style.display = "none";
+                eyeClosed.style.display = "block";
 
-            eyeOpen.style.display = "none";
-            eyeClosed.style.display = "block";
+                button.setAttribute("aria-label", "Hide password");
 
-            button.setAttribute("aria-label", "Hide password");
+            } else {
 
-        } else {
+                passwordInput.type = "password";
 
-            passwordInput.type = "password";
+                eyeOpen.style.display = "block";
+                eyeClosed.style.display = "none";
 
-            eyeOpen.style.display = "block";
-            eyeClosed.style.display = "none";
+                button.setAttribute("aria-label", "Show password");
 
-            button.setAttribute("aria-label", "Show password");
+            }
 
         }
 
-    }
-
-</script>
-```
+    </script>
 
 </body>
 
