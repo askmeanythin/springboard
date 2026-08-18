@@ -261,6 +261,13 @@ body{
 
     font-size:14px;
     font-weight:600;
+    overflow:hidden;
+}
+
+.avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
 }
 
 .user-info{
@@ -364,6 +371,13 @@ body{
 
     font-size:18px;
     font-weight:600;
+    overflow:hidden;
+}
+
+.detail-avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
 }
 
 .detail-name{
@@ -815,6 +829,13 @@ body{
 
     font-size:17px;
     font-weight:600;
+    overflow:hidden;
+}
+
+.candidate-detail-avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
 }
 
 .candidate-detail-name{
@@ -1083,15 +1104,23 @@ body{
         <div class="summary-item">
 
             <div class="summary-label">
-                Alerts
+                Last Login
             </div>
 
             <div class="summary-value">
-                {{ alert_count }}
+                {% if admin_last_login %}
+                    {{ admin_last_login.strftime('%d %b %Y') }}
+                {% else %}
+                    —
+                {% endif %}
             </div>
 
             <div class="summary-note">
-                Requires review
+                {% if admin_last_login %}
+                    {{ admin_last_login.strftime('%I:%M %p') }}
+                {% else %}
+                    Never
+                {% endif %}
             </div>
 
         </div>
@@ -1139,7 +1168,11 @@ body{
 
                     <div class="avatar">
 
-                        {{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}
+                        {% if user.photo_path %}
+                            <img src="/photos/{{ user.photo_path.split('/')[-1] }}" alt="Candidate">
+                        {% else %}
+                            {{ user.first_name[0]|upper }}{{ user.last_name[0]|upper }}
+                        {% endif %}
 
                     </div>
 
@@ -1890,6 +1923,15 @@ users.forEach(function(user){
         const candidateId = user.dataset.candidateId;
 
 
+        /*
+         * Populate real data from candidate_stats.
+         */
+
+        const stats = candidateId
+            ? (window.candidateStats && window.candidateStats[candidateId])
+            : null;
+
+
         /* Avatar */
 
         let initials = "";
@@ -1903,7 +1945,15 @@ users.forEach(function(user){
         }
 
 
-        detailAvatar.textContent = initials || "—";
+        const photoPath = stats ? stats.photo_path : null;
+
+        if(photoPath){
+            detailAvatar.innerHTML =
+                '<img src="/photos/' + photoPath.split('/').pop() + '" alt="Candidate">';
+        }
+        else{
+            detailAvatar.textContent = initials || "—";
+        }
 
         detailName.textContent = fullName;
 
@@ -1916,16 +1966,7 @@ users.forEach(function(user){
         detailTests.textContent = tests;
 
 
-        /*
-         * Populate real data from candidate_stats.
-         */
-
-        const stats = candidateId
-            ? (window.candidateStats && window.candidateStats[candidateId])
-            : null;
-
         if(stats){
-
             /* Average integrity */
             detailIntegrity.textContent =
                 stats.avg_integrity !== null && stats.avg_integrity !== undefined
