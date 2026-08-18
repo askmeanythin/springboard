@@ -630,7 +630,7 @@ def get_report_metrics(email):
         SELECT COUNT(*)
         FROM MonitoringEvent me
         INNER JOIN Penalty p ON p.event_id = me.event_id
-        WHERE me.session_id=? AND p.reason='Candidate Missing'
+        WHERE me.session_id=? AND p.reason='Face Missing'
         """,
         (session_id,)
     )

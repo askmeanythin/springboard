@@ -10,30 +10,216 @@
 
 <style>
 
+:root{
+    --paper:#f5f5f5;
+    --white:#ffffff;
+    --ink:#333333;
+    --muted:#666666;
+    --line:#dddddd;
+    --soft:#f9f9f9;
+    --dark:#222222;
+    --green:#4CAF50;
+    --red:#f44336;
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
 body{
-
-font-family:Arial,sans-serif;
-background:#f5f5f5;
-padding:40px;
-
+    background:var(--paper);
+    color:var(--ink);
+    font-family:Arial, sans-serif;
+    min-height:100vh;
 }
 
-.container{
+/* ---------- TOPBAR ---------- */
 
-max-width:1000px;
-margin:auto;
-background:white;
-padding:30px;
-border-radius:10px;
-box-shadow:0 0 10px rgba(0,0,0,.1);
+.topbar{
+    height:72px;
+    background:var(--white);
+    border-bottom:1px solid var(--line);
 
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    padding:0 38px;
 }
 
-h1{
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
 
-text-align:center;
-margin-bottom:30px;
+.brand-mark{
+    width:30px;
+    height:30px;
+    border:1px solid var(--dark);
 
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:13px;
+    font-weight:600;
+}
+
+.brand-name{
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:.2px;
+}
+
+.top-right{
+    display:flex;
+    align-items:center;
+    gap:20px;
+}
+
+.report-label{
+    font-size:13px;
+    color:var(--muted);
+}
+
+.logout{
+    border:0;
+    background:none;
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13px;
+    cursor:pointer;
+    padding:5px 0;
+    border-bottom:1px solid transparent;
+}
+
+.logout:hover{
+    border-bottom-color:var(--ink);
+}
+
+/* ---------- PAGE ---------- */
+
+.page{
+    max-width:1500px;
+    margin:auto;
+    padding:38px;
+}
+
+.page-heading{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+
+    margin-bottom:32px;
+}
+
+.heading-left h1{
+    font-family:Arial, sans-serif;
+    font-size:32px;
+    font-weight:bold;
+    letter-spacing:0px;
+}
+
+.heading-left p{
+    margin-top:8px;
+    color:var(--muted);
+    font-size:14px;
+}
+
+.date{
+    color:var(--muted);
+    font-size:13px;
+}
+
+/* ---------- GRID ---------- */
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.card {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 28px;
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    border-color: #b9b6ad;
+}
+
+.card.highlight {
+    border: 2px solid var(--green);
+    background: var(--soft);
+}
+
+.card h2 {
+    margin: 0 0 18px 0;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ink);
+}
+
+.card p {
+    margin: 12px 0;
+    line-height: 1.6;
+    font-size: 13px;
+}
+
+.card p strong {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--ink);
+}
+
+/* ---------- TIMELINE SECTION ---------- */
+
+.timeline {
+    grid-column: 1 / -1;
+}
+
+.timeline h2 {
+    margin-bottom: 24px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+th,
+td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+}
+
+th {
+    background: var(--soft);
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+tbody tr {
+    transition: background 0.15s ease;
+}
+
+tbody tr:hover {
+    background: #faf9f6;
 }
 
 </style>
@@ -42,171 +228,127 @@ margin-bottom:30px;
 
 <body>
 
-<div class="container">
-
-    <h1>Exam Integrity Report</h1>
-
-    <div class="grid">
-        <section class="card">
-            <h2>Candidate Information</h2>
-            <p><strong>Candidate ID</strong><br>{{ candidate_id }}</p>
-            <p><strong>Candidate Name</strong><br>{{ candidate_name }}</p>
-            <p><strong>Email</strong><br>{{ candidate_email }}</p>
-        </section>
-
-        <section class="card">
-            <h2>Session Information</h2>
-            {% if session_data %}
-                <p><strong>Session ID</strong><br>{{ session_data[0] }}</p>
-                <p><strong>Start Time</strong><br>{{ session_data[1].strftime('%Y-%m-%d %H:%M:%S') if session_data[1] else '—' }}</p>
-                <p><strong>End Time</strong><br>{{ session_data[2].strftime('%Y-%m-%d %H:%M:%S') if session_data[2] else '—' }}</p>
-                <p><strong>Duration</strong><br>{{ duration }}</p>
-                <p><strong>Status</strong><br>{{ session_data[3] }}</p>
-            {% else %}
-                <p>No session information found.</p>
-            {% endif %}
-        </section>
-
-        <section class="card">
-            <h2>Monitoring Statistics</h2>
-            <p><strong>Face Absence Count</strong><br>{{ face_absence_count }}</p>
-            <p><strong>Browser Focus Loss Count</strong><br>{{ browser_focus_loss_count }}</p>
-            <p><strong>Multiple Face Count</strong><br>{{ multiple_face_count }}</p>
-            <p><strong>Total Suspicious Events</strong><br>{{ total_suspicious_events }}</p>
-        </section>
-
-        <section class="card highlight">
-            <h2>Integrity Summary</h2>
-            <p><strong>Final Integrity Score</strong><br>{{ normalized_integrity if normalized_integrity is not none else final_integrity }}</p>
-            <p><strong>Overall Remark</strong><br>{{ overall_remark }}</p>
-            <p><strong>Total Penalties</strong><br>{{ total_penalties or 0 }}</p>
-            <p><strong>Total Screenshots</strong><br>{{ total_screenshots or 0 }}</p>
-        </section>
+<!-- Topbar -->
+<div class="topbar">
+    <div class="brand">
+        <div class="brand-mark">S</div>
+        <div class="brand-name">Springboard</div>
     </div>
-
-    <section class="card timeline">
-        <h2>Violation Evidence</h2>
-        {% if violations %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Violation</th>
-                        <th>Penalty</th>
-                        <th>Integrity After</th>
-                        <th>Remarks</th>
-                        <th>Screenshot</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for violation in violations %}
-                        <tr>
-                            <td>{{ violation.event_timestamp.strftime('%Y-%m-%d %H:%M:%S') if violation.event_timestamp else '—' }}</td>
-                            <td>
-                                {{ violation.event_subtype }}
-                                {% if violation.face_count is not none %}
-                                    <br><small>Faces: {{ violation.face_count }}</small>
-                                {% endif %}
-                            </td>
-                            <td>{{ violation.penalty_points }}</td>
-                            <td>{{ violation.integrity_after }}</td>
-                            <td>{{ violation.remarks or '' }}</td>
-                            <td>
-                                {% if violation.screenshot_path %}
-                                    <a href="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}" target="_blank" rel="noopener noreferrer">
-                                        <img
-                                            src="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}"
-                                            alt="Violation screenshot"
-                                            style="width: 120px; height: auto; border-radius: 8px; border: 1px solid #d9e2ec;"
-                                        >
-                                    </a>
-                                {% else %}
-                                    <span>No screenshot</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p>No normalized violation evidence available.</p>
-        {% endif %}
-    </section>
+    <div class="top-right">
+        <span class="report-label">Exam Integrity Report</span>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
 </div>
 
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #f2f4f8;
-        margin: 0;
-        padding: 30px;
-        color: #1a2330;
-    }
+<!-- Page Content -->
+<div class="page">
+    <!-- Page Heading -->
+    <div class="page-heading">
+        <div class="heading-left">
+            <h1>Exam Integrity Report</h1>
+            <p>Comprehensive analysis of exam session integrity and monitoring</p>
+        </div>
+        <div class="date" id="current-date"></div>
+    </div>
 
-    .container {
-        max-width: 1100px;
-        margin: auto;
-    }
+    <!-- Main Grid -->
+    <div class="container">
 
-    h1 {
-        text-align: center;
-        margin-bottom: 30px;
-        color: #1d2c4d;
-    }
+        <div class="grid">
+            <section class="card">
+                <h2>Candidate Information</h2>
+                <p><strong>Candidate ID</strong>{{ candidate_id }}</p>
+                <p><strong>Candidate Name</strong>{{ candidate_name }}</p>
+                <p><strong>Email</strong>{{ candidate_email }}</p>
+            </section>
 
-    .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
-        margin-bottom: 25px;
-    }
+            <section class="card">
+                <h2>Session Information</h2>
+                {% if session_data %}
+                    <p><strong>Session ID</strong>{{ session_data[0] }}</p>
+                    <p><strong>Start Time</strong>{{ session_data[1].strftime('%Y-%m-%d %H:%M:%S') if session_data[1] else '—' }}</p>
+                    <p><strong>End Time</strong>{{ session_data[2].strftime('%Y-%m-%d %H:%M:%S') if session_data[2] else '—' }}</p>
+                    <p><strong>Duration</strong>{{ duration }}</p>
+                    <p><strong>Status</strong>{{ session_data[3] }}</p>
+                {% else %}
+                    <p>No session information found.</p>
+                {% endif %}
+            </section>
 
-    .card {
-        background: #ffffff;
-        border-radius: 14px;
-        padding: 22px;
-        box-shadow: 0 18px 40px rgba(34, 70, 140, 0.06);
-    }
+            <section class="card">
+                <h2>Monitoring Statistics</h2>
+                <p><strong>Face Absence Count</strong>{{ face_absence_count }}</p>
+                <p><strong>Browser Focus Loss Count</strong>{{ browser_focus_loss_count }}</p>
+                <p><strong>Multiple Face Count</strong>{{ multiple_face_count }}</p>
+                <p><strong>Total Suspicious Events</strong>{{ total_suspicious_events }}</p>
+            </section>
 
-    .card.highlight {
-        border: 1px solid #526dff;
-        background: #eef2ff;
-    }
+            <section class="card highlight">
+                <h2>Integrity Summary</h2>
+                <p><strong>Final Integrity Score</strong>{{ normalized_integrity if normalized_integrity is not none else final_integrity }}</p>
+                <p><strong>Overall Remark</strong>{{ overall_remark }}</p>
+                <p><strong>Total Penalties</strong>{{ total_penalties or 0 }}</p>
+                <p><strong>Total Screenshots</strong>{{ total_screenshots or 0 }}</p>
+            </section>
+        </div>
 
-    .card h2 {
-        margin-top: 0;
-        margin-bottom: 18px;
-        font-size: 20px;
-        color: #21325f;
-    }
+        <section class="card timeline">
+            <h2>Violation Evidence</h2>
+            {% if violations %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Violation</th>
+                            <th>Penalty</th>
+                            <th>Integrity After</th>
+                            <th>Remarks</th>
+                            <th>Screenshot</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for violation in violations %}
+                            <tr>
+                                <td>{{ violation.event_timestamp.strftime('%Y-%m-%d %H:%M:%S') if violation.event_timestamp else '—' }}</td>
+                                <td>
+                                    {{ violation.event_subtype }}
+                                    {% if violation.face_count is not none %}
+                                        <br><small>Faces: {{ violation.face_count }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ violation.penalty_points }}</td>
+                                <td>{{ violation.integrity_after }}</td>
+                                <td>{{ violation.remarks or '' }}</td>
+                                <td>
+                                    {% if violation.screenshot_path %}
+                                        <a href="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}" target="_blank" rel="noopener noreferrer">
+                                            <img
+                                                src="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}"
+                                                alt="Violation screenshot"
+                                                style="width: 120px; height: auto; border-radius: 8px; border: 1px solid var(--line);"
+                                            >
+                                        </a>
+                                    {% else %}
+                                        <span>—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--muted); font-size: 13px;">No violation evidence available.</p>
+            {% endif %}
+        </section>
+    </div>
+</div>
 
-    .card p {
-        margin: 12px 0;
-        line-height: 1.5;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-
-    th,
-    td {
-        padding: 12px 14px;
-        border-bottom: 1px solid #e6ebf2;
-        text-align: left;
-    }
-
-    th {
-        background: #f6f8ff;
-        font-weight: 600;
-    }
-
-    tbody tr:hover {
-        background: #f7f8fc;
-    }
-</style>
+<script>
+    // Set current date
+    const today = new Date();
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('current-date').textContent = today.toLocaleDateString('en-US', options);
+</script>
 
 </body>
 
