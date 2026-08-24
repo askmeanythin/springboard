@@ -6,187 +6,258 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exam Window</title>
 
-    <style>
-
-        *{
-            margin:0;
-            padding:0;
-            box-sizing:border-box;
-            font-family:Arial,sans-serif;
-        }
-
-        body{
-            background:#f5f5f5;
-            padding:20px;
-        }
-
-        .container{
-            display:flex;
-            gap:20px;
-        }
-
-        .camera{
-            flex:2;
-            background:white;
-            border-radius:10px;
-            padding:20px;
-            box-shadow:0 0 10px rgba(0,0,0,.1);
-        }
-
-        .info{
-            flex:1;
-            background:white;
-            border-radius:10px;
-            padding:20px;
-            box-shadow:0 0 10px rgba(0,0,0,.1);
-        }
-
-        .camera-box{
-            width:100%;
-            height:500px;
-            border:2px dashed #999;
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            font-size:22px;
-        }
-
-        h2{
-            margin-bottom:20px;
-        }
-
-        p{
-            margin:12px 0;
-        }
-
-        ul{
-            margin-left:20px;
-        }
-
-        button{
-            margin-top:30px;
-            width:100%;
-            padding:12px;
-            font-size:18px;
-            cursor:pointer;
-        }
-
-    </style>
-
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
-<body>
+<body class="exam-body">
 
 <script>
     const examSessionId = {{ exam_session_id | tojson }};
 </script>
 
-<div class="container">
+<header class="topbar">
 
-    <div class="camera">
+    <div class="brand">
 
-        <h2>Live Camera</h2>
-
-        <div class="camera-box">
-
-            <img
-                src="{{ url_for('video_feed') }}?session_id={{ exam_session_id }}"
-                width="100%"
-                height="100%"
-            >
-
+        <div class="brand-mark">
+            EM
         </div>
 
-        <div class="camera-stats">
-            <p><b>Faces Detected :</b> <span id="faceCount">0</span></p>
-            <p id="timerRow" style="display:none;"><b>Missing Time :</b> <span id="missingTimer">0</span> sec</p>
+        <div class="brand-name">
+            Exam Monitoring
         </div>
 
     </div>
 
+    <div class="top-right">
 
-    <div id="warningMessage"
-        style="display:none;
-                color:red;
-                font-size:20px;
-                font-weight:bold;
-                margin-top:15px;">
-        Warning: Face not detected!
-    </div>
+        <span class="top-label">
+            Examination in progress
+        </span>
 
-    <div class="info">
-
-        <h2>Candidate Information</h2>
-
-        <p><b>Name :</b> {{ session['candidate_name'] }}</p>
-
-        <p><b>Email :</b> {{ session['candidate_email'] }}</p>
-
-        <p>
-            <b>Integrity Score :</b>
-            <span
-                id="integrityScore"
-                style="
-                color:green;
-                font-size:24px;
-                font-weight:bold;
-                "
-            >
-                100
-            </span>
-        </p>
-
-        <p>
-            <b>Current Time :</b>
-            <span id="currentTime"></span>
-        </p>
-        
-        <hr><br>
-
-        <h3>Browser Monitoring</h3>
-
-        <p>
-            <b>Browser Status :</b>
-            <span id="browserStatus">Browser Active</span>
-        </p>
-
-        <p>
-            <b>Focus Loss Events :</b>
-            <span id="focusCount">0</span>
-        </p>
-
-        <p>
-            <b>Last Focus Loss Time :</b>
-            <span id="lastFocusTime">None</span>
-        </p>
-
-        <hr><br>
-
-        <h3>Guidelines</h3>
-
-        <ul>
-
-            <li>Keep your face visible.</li>
-
-            <li>Do not switch tabs.</li>
-
-            <li>Stay in front of the camera.</li>
-
-            <li>All activities are monitored.</li>
-
-            <li>Ensure proper lighting.</li>
-
-        </ul>
-
-        <button id="endExamBtn" onclick="endExam()">
-
-            End Exam
-
-        </button>
+        <span class="status status-good">
+            <span class="status-dot"></span>
+            Monitored
+        </span>
 
     </div>
 
-</div>
+</header>
+
+
+<main class="page">
+
+    <div class="page-heading">
+
+        <div class="heading-left">
+
+            <h1>Examination Window</h1>
+
+            <p>
+                Your camera feed and browser activity are being monitored
+            </p>
+
+        </div>
+
+        <div class="page-meta">
+            Session {{ exam_session_id }}
+        </div>
+
+    </div>
+
+
+    <div class="exam-layout">
+
+
+        <!-- ===================== CAMERA ===================== -->
+
+        <section class="camera-panel">
+
+            <div class="panel-head">
+
+                <h2>Live Camera</h2>
+
+                <span class="view-label">
+                    Continuous face monitoring
+                </span>
+
+            </div>
+
+            <div class="camera-frame">
+
+                <span class="camera-tag">
+                    <span class="status-dot"></span>
+                    Live
+                </span>
+
+                <img
+                    src="{{ url_for('video_feed') }}?session_id={{ exam_session_id }}"
+                    width="100%"
+                    height="100%"
+                    alt="Live camera feed"
+                >
+
+            </div>
+
+            <div class="camera-stats">
+
+                <p>
+                    <b class="camera-stat-label">Faces Detected</b>
+                    <span class="camera-stat-value" id="faceCount">0</span>
+                </p>
+
+                <p id="timerRow" style="display:none;">
+                    <b class="camera-stat-label">Missing Time</b>
+                    <span class="camera-stat-value" id="missingTimer">0</span><span class="camera-stat-unit">sec</span>
+                </p>
+
+            </div>
+
+            <div id="warningMessage"
+                class="exam-warning"
+                style="display:none;">
+                Warning: Face not detected!
+            </div>
+
+            <div class="exam-guidelines">
+
+                <div class="section-label">
+                    Guidelines
+                </div>
+
+                <ul class="guide-list">
+
+                    <li>Keep your face visible.</li>
+
+                    <li>Do not switch tabs.</li>
+
+                    <li>Stay in front of the camera.</li>
+
+                    <li>All activities are monitored.</li>
+
+                    <li>Ensure proper lighting.</li>
+
+                </ul>
+
+            </div>
+
+        </section>
+
+
+        <!-- ===================== INFORMATION ===================== -->
+
+        <aside class="exam-side">
+
+
+            <!-- CANDIDATE -->
+
+            <section class="info-panel">
+
+                <div class="panel-head">
+                    <h2>Candidate Information</h2>
+                </div>
+
+                <div class="data-list">
+
+                    <div class="data-row">
+                        <span class="data-label">Name</span>
+                        <span class="data-value">{{ session['candidate_name'] }}</span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="data-label">Email</span>
+                        <span class="data-value">{{ session['candidate_email'] }}</span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="data-label">Current Time</span>
+                        <span class="data-value mono-figure" id="currentTime"></span>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- INTEGRITY -->
+
+            <section class="info-panel">
+
+                <div class="panel-head">
+
+                    <h2>Integrity Score</h2>
+
+                    <span class="view-label">Live</span>
+
+                </div>
+
+                <div class="integrity-block">
+
+                    <div class="integrity-value" id="integrityScore">100</div>
+
+                    <div class="integrity-scale">
+                        <span>0</span>
+                        <span>100</span>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- BROWSER MONITORING -->
+
+            <section class="info-panel">
+
+                <div class="panel-head">
+                    <h2>Browser Monitoring</h2>
+                </div>
+
+                <div class="monitor-row">
+                    <span class="monitor-label">Browser Status</span>
+                    <span class="monitor-value" id="browserStatus">Browser Active</span>
+                </div>
+
+                <div class="monitor-row">
+                    <span class="monitor-label">Focus Loss Events</span>
+                    <span class="monitor-value mono-figure" id="focusCount">0</span>
+                </div>
+
+                <div class="monitor-row">
+                    <span class="monitor-label">Last Focus Loss Time</span>
+                    <span class="monitor-value mono-figure" id="lastFocusTime">None</span>
+                </div>
+
+            </section>
+
+
+            <!-- END EXAM -->
+
+            <section class="info-panel">
+
+                <div class="exam-end">
+
+                    <p>
+                        Ending the examination is final. Your session will be
+                        closed and the integrity report generated.
+                    </p>
+
+                    <button id="endExamBtn" onclick="endExam()">
+
+                        End Exam
+
+                    </button>
+
+                </div>
+
+            </section>
+
+        </aside>
+
+    </div>
+
+</main>
 
 <script>
 
@@ -257,7 +328,7 @@ document.addEventListener("visibilitychange", function () {
             new Date().toLocaleTimeString();
 
         fetch("/browser_event", {
-            
+
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -306,19 +377,19 @@ async function updateIntegrity(){
 
     if(score >= 70){
 
-        scoreElement.style.color = "green";
+        scoreElement.style.color = "#557363";
 
     }
 
     else if(score >= 40){
 
-        scoreElement.style.color = "orange";
+        scoreElement.style.color = "#9a8560";
 
     }
 
     else{
 
-        scoreElement.style.color = "red";
+        scoreElement.style.color = "#9a5b52";
 
     }
 

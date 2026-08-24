@@ -8,294 +8,328 @@
 
 <title>Integrity Report</title>
 
-<style>
-
-:root{
-    --paper:#f5f5f5;
-    --white:#ffffff;
-    --ink:#333333;
-    --muted:#666666;
-    --line:#dddddd;
-    --soft:#f9f9f9;
-    --dark:#222222;
-    --green:#4CAF50;
-    --red:#f44336;
-}
-
-*{
-    box-sizing:border-box;
-    margin:0;
-    padding:0;
-}
-
-body{
-    background:var(--paper);
-    color:var(--ink);
-    font-family:Arial, sans-serif;
-    min-height:100vh;
-}
-
-/* ---------- TOPBAR ---------- */
-
-.topbar{
-    height:72px;
-    background:var(--white);
-    border-bottom:1px solid var(--line);
-
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-
-    padding:0 38px;
-}
-
-.brand{
-    display:flex;
-    align-items:center;
-    gap:12px;
-}
-
-.brand-mark{
-    width:30px;
-    height:30px;
-    border:1px solid var(--dark);
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    font-size:13px;
-    font-weight:600;
-}
-
-.brand-name{
-    font-size:15px;
-    font-weight:600;
-    letter-spacing:.2px;
-}
-
-.top-right{
-    display:flex;
-    align-items:center;
-    gap:20px;
-}
-
-.report-label{
-    font-size:13px;
-    color:var(--muted);
-}
-
-.logout{
-    border:0;
-    background:none;
-    color:var(--ink);
-    font-family:inherit;
-    font-size:13px;
-    cursor:pointer;
-    padding:5px 0;
-    border-bottom:1px solid transparent;
-}
-
-.logout:hover{
-    border-bottom-color:var(--ink);
-}
-
-/* ---------- PAGE ---------- */
-
-.page{
-    max-width:1500px;
-    margin:auto;
-    padding:38px;
-}
-
-.page-heading{
-    display:flex;
-    align-items:flex-end;
-    justify-content:space-between;
-
-    margin-bottom:32px;
-}
-
-.heading-left h1{
-    font-family:Arial, sans-serif;
-    font-size:32px;
-    font-weight:bold;
-    letter-spacing:0px;
-}
-
-.heading-left p{
-    margin-top:8px;
-    color:var(--muted);
-    font-size:14px;
-}
-
-.date{
-    color:var(--muted);
-    font-size:13px;
-}
-
-/* ---------- GRID ---------- */
-
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-    margin-bottom: 32px;
-}
-
-.card {
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 28px;
-    transition: all 0.2s ease;
-}
-
-.card:hover {
-    border-color: #b9b6ad;
-}
-
-.card.highlight {
-    border: 2px solid var(--green);
-    background: var(--soft);
-}
-
-.card h2 {
-    margin: 0 0 18px 0;
-    font-size: 14px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--ink);
-}
-
-.card p {
-    margin: 12px 0;
-    line-height: 1.6;
-    font-size: 13px;
-}
-
-.card p strong {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 4px;
-    color: var(--ink);
-}
-
-/* ---------- TIMELINE SECTION ---------- */
-
-.timeline {
-    grid-column: 1 / -1;
-}
-
-.timeline h2 {
-    margin-bottom: 24px;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-
-th,
-td {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--line);
-    text-align: left;
-}
-
-th {
-    background: var(--soft);
-    font-weight: 600;
-    color: var(--ink);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-tbody tr {
-    transition: background 0.15s ease;
-}
-
-tbody tr:hover {
-    background: #faf9f6;
-}
-
-</style>
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}">
 
 </head>
 
 <body>
 
+{# presentation-only helper: same expression the score was rendered with before #}
+{% set score = normalized_integrity if normalized_integrity is not none else final_integrity %}
+
+
 <!-- Topbar -->
-<div class="topbar">
+<header class="topbar">
+
     <div class="brand">
-        <div class="brand-mark">S</div>
-        <div class="brand-name">Springboard</div>
+
+        <div class="brand-mark">
+            EM
+        </div>
+
+        <div class="brand-name">
+            Exam Monitoring
+        </div>
+
     </div>
+
     <div class="top-right">
-        <span class="report-label">Exam Integrity Report</span>
-        <a href="/logout" class="logout">Logout</a>
+
+        <span class="report-label">
+            Exam Integrity Report
+        </span>
+
+        <a href="/logout" class="logout">
+            Logout
+        </a>
+
     </div>
-</div>
+
+</header>
+
 
 <!-- Page Content -->
-<div class="page">
+<main class="page">
+
     <!-- Page Heading -->
     <div class="page-heading">
+
         <div class="heading-left">
+
             <h1>Exam Integrity Report</h1>
-            <p>Comprehensive analysis of exam session integrity and monitoring</p>
+
+            <p>
+                Comprehensive analysis of exam session integrity and monitoring
+            </p>
+
         </div>
+
         <div class="date" id="current-date"></div>
+
     </div>
 
-    <!-- Main Grid -->
-    <div class="container">
 
-        <div class="grid">
-            <section class="card">
-                <h2>Candidate Information</h2>
-                <p><strong>Candidate ID</strong>{{ candidate_id }}</p>
-                <p><strong>Candidate Name</strong>{{ candidate_name }}</p>
-                <p><strong>Email</strong>{{ candidate_email }}</p>
-            </section>
+    <!-- HEADLINE FIGURES -->
 
-            <section class="card">
-                <h2>Session Information</h2>
-                {% if session_data %}
-                    <p><strong>Session ID</strong>{{ session_data[0] }}</p>
-                    <p><strong>Start Time</strong>{{ session_data[1].strftime('%Y-%m-%d %H:%M:%S') if session_data[1] else '—' }}</p>
-                    <p><strong>End Time</strong>{{ session_data[2].strftime('%Y-%m-%d %H:%M:%S') if session_data[2] else '—' }}</p>
-                    <p><strong>Duration</strong>{{ duration }}</p>
-                    <p><strong>Status</strong>{{ session_data[3] }}</p>
-                {% else %}
-                    <p>No session information found.</p>
-                {% endif %}
-            </section>
+    <section class="summary">
 
-            <section class="card">
-                <h2>Monitoring Statistics</h2>
-                <p><strong>Face Absence Count</strong>{{ face_absence_count }}</p>
-                <p><strong>Browser Focus Loss Count</strong>{{ browser_focus_loss_count }}</p>
-                <p><strong>Multiple Face Count</strong>{{ multiple_face_count }}</p>
-                <p><strong>Total Suspicious Events</strong>{{ total_suspicious_events }}</p>
-            </section>
+        <div class="summary-item">
 
-            <section class="card highlight">
-                <h2>Integrity Summary</h2>
-                <p><strong>Final Integrity Score</strong>{{ normalized_integrity if normalized_integrity is not none else final_integrity }}</p>
-                <p><strong>Overall Remark</strong>{{ overall_remark }}</p>
-                <p><strong>Total Penalties</strong>{{ total_penalties or 0 }}</p>
-                <p><strong>Total Screenshots</strong>{{ total_screenshots or 0 }}</p>
-            </section>
+            <div class="summary-label">
+                Integrity Score
+            </div>
+
+            <div class="summary-value
+                {%- if score is number and score >= 70 %} integrity-high
+                {%- elif score is number and score >= 40 %} integrity-medium
+                {%- elif score is number %} integrity-low
+                {%- endif %}">
+                {{ score }}
+            </div>
+
+            <div class="summary-note">
+                Final session score
+            </div>
+
         </div>
 
-        <section class="card timeline">
+        <div class="summary-item">
+
+            <div class="summary-label">
+                Suspicious Events
+            </div>
+
+            <div class="summary-value">
+                {{ total_suspicious_events }}
+            </div>
+
+            <div class="summary-note">
+                Flagged during monitoring
+            </div>
+
+        </div>
+
+        <div class="summary-item">
+
+            <div class="summary-label">
+                Total Penalties
+            </div>
+
+            <div class="summary-value">
+                {{ total_penalties or 0 }}
+            </div>
+
+            <div class="summary-note">
+                Points deducted
+            </div>
+
+        </div>
+
+        <div class="summary-item">
+
+            <div class="summary-label">
+                Screenshots
+            </div>
+
+            <div class="summary-value">
+                {{ total_screenshots or 0 }}
+            </div>
+
+            <div class="summary-note">
+                Evidence captured
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- DETAIL CARDS -->
+
+    <div class="section-title">
+
+        <h2>Session Detail</h2>
+
+        <span class="count">Candidate and monitoring records</span>
+
+    </div>
+
+    <div class="report-grid">
+
+        <section class="report-card">
+
+            <h2>Candidate Information</h2>
+
+            <div class="data-list">
+
+                <div class="data-row">
+                    <span class="data-label">Candidate ID</span>
+                    <span class="data-value">{{ candidate_id }}</span>
+                </div>
+
+                <div class="data-row">
+                    <span class="data-label">Candidate Name</span>
+                    <span class="data-value">{{ candidate_name }}</span>
+                </div>
+
+                <div class="data-row">
+                    <span class="data-label">Email</span>
+                    <span class="data-value">{{ candidate_email }}</span>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <section class="report-card">
+
+            <h2>Session Information</h2>
+
+            {% if session_data %}
+
+                <div class="data-list">
+
+                    <div class="data-row">
+                        <span class="data-label">Session ID</span>
+                        <span class="data-value">{{ session_data[0] }}</span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="data-label">Start Time</span>
+                        <span class="data-value">{{ session_data[1].strftime('%Y-%m-%d %H:%M:%S') if session_data[1] else '—' }}</span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="data-label">End Time</span>
+                        <span class="data-value">{{ session_data[2].strftime('%Y-%m-%d %H:%M:%S') if session_data[2] else '—' }}</span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="data-label">Duration</span>
+                        <span class="data-value">{{ duration }}</span>
+                    </div>
+
+                    <div class="data-row">
+                        <span class="data-label">Status</span>
+                        <span class="data-value">{{ session_data[3] }}</span>
+                    </div>
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state empty-state--flush">
+                    No session information found.
+                </div>
+
+            {% endif %}
+
+        </section>
+
+
+        <section class="report-card">
+
+            <h2>Monitoring Statistics</h2>
+
+            <div class="data-list">
+
+                <div class="data-row">
+                    <span class="data-label">Face Absence Count</span>
+                    <span class="data-value mono-figure">{{ face_absence_count }}</span>
+                </div>
+
+                <div class="data-row">
+                    <span class="data-label">Browser Focus Loss Count</span>
+                    <span class="data-value mono-figure">{{ browser_focus_loss_count }}</span>
+                </div>
+
+                <div class="data-row">
+                    <span class="data-label">Multiple Face Count</span>
+                    <span class="data-value mono-figure">{{ multiple_face_count }}</span>
+                </div>
+
+                <div class="data-row">
+                    <span class="data-label">Total Suspicious Events</span>
+                    <span class="data-value mono-figure">{{ total_suspicious_events }}</span>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <section class="report-card report-card--score">
+
+            <h2>Integrity Summary</h2>
+
+            <div>
+
+                <div class="score-figure
+                    {%- if score is number and score >= 70 %} integrity-high
+                    {%- elif score is number and score >= 40 %} integrity-medium
+                    {%- elif score is number %} integrity-low
+                    {%- endif %}">
+                    {{ score }}
+                </div>
+
+                <p class="score-remark">
+                    {{ overall_remark }}
+                </p>
+
+                {% if score is number %}
+                    <div class="meter">
+                        <div class="meter-fill
+                            {%- if score >= 70 %}
+                            {%- elif score >= 40 %} is-warn
+                            {%- else %} is-bad
+                            {%- endif %}"
+                            style="width: {{ score }}%;"></div>
+                    </div>
+                {% endif %}
+
+            </div>
+
+            <div class="data-list" style="margin-top:20px;">
+
+                <div class="data-row">
+                    <span class="data-label">Total Penalties</span>
+                    <span class="data-value mono-figure">{{ total_penalties or 0 }}</span>
+                </div>
+
+                <div class="data-row">
+                    <span class="data-label">Total Screenshots</span>
+                    <span class="data-value mono-figure">{{ total_screenshots or 0 }}</span>
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- VIOLATION EVIDENCE -->
+
+    <section class="evidence-section">
+
+        <div class="evidence-head">
+
             <h2>Violation Evidence</h2>
-            {% if violations %}
-                <table>
+
+            <span class="count">
+                {{ violations|length }} recorded
+            </span>
+
+        </div>
+
+        {% if violations %}
+
+            <div class="table-wrap">
+
+                <table class="table">
+
                     <thead>
                         <tr>
                             <th>Timestamp</th>
@@ -306,42 +340,52 @@ tbody tr:hover {
                             <th>Screenshot</th>
                         </tr>
                     </thead>
+
                     <tbody>
                         {% for violation in violations %}
                             <tr>
-                                <td>{{ violation.event_timestamp.strftime('%Y-%m-%d %H:%M:%S') if violation.event_timestamp else '—' }}</td>
+                                <td class="mono-figure">{{ violation.event_timestamp.strftime('%Y-%m-%d %H:%M:%S') if violation.event_timestamp else '—' }}</td>
                                 <td>
                                     {{ violation.event_subtype }}
                                     {% if violation.face_count is not none %}
                                         <br><small>Faces: {{ violation.face_count }}</small>
                                     {% endif %}
                                 </td>
-                                <td>{{ violation.penalty_points }}</td>
-                                <td>{{ violation.integrity_after }}</td>
+                                <td class="mono-figure">{{ violation.penalty_points }}</td>
+                                <td class="mono-figure">{{ violation.integrity_after }}</td>
                                 <td>{{ violation.remarks or '' }}</td>
                                 <td>
                                     {% if violation.screenshot_path %}
                                         <a href="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}" target="_blank" rel="noopener noreferrer">
                                             <img
+                                                class="evidence-shot"
                                                 src="{{ url_for('screenshot_file', screenshot_path=violation.screenshot_path) }}"
                                                 alt="Violation screenshot"
-                                                style="width: 120px; height: auto; border-radius: 8px; border: 1px solid var(--line);"
                                             >
                                         </a>
                                     {% else %}
-                                        <span>—</span>
+                                        <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
                             </tr>
                         {% endfor %}
                     </tbody>
+
                 </table>
-            {% else %}
-                <p style="color: var(--muted); font-size: 13px;">No violation evidence available.</p>
-            {% endif %}
-        </section>
-    </div>
-</div>
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state empty-state--flush">
+                No violation evidence available.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+</main>
 
 <script>
     // Set current date

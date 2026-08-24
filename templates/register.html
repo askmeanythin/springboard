@@ -7,361 +7,48 @@
 
     <title>Candidate Registration</title>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@500;600&display=swap');
-
-        :root {
-            --paper: #f7f6f2;
-            --white: #ffffff;
-            --ink: #252525;
-            --muted: #77746d;
-            --line: #dedcd5;
-            --soft: #efeee9;
-            --dark: #292a27;
-            --green: #557363;
-            --red: #9a5b52;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background: var(--paper);
-            color: var(--ink);
-            font-family: "DM Sans", sans-serif;
-            min-height: 100vh;
-        }
-
-        .register-page {
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 40px 20px;
-        }
-
-        .register-container {
-            width: 100%;
-            max-width: 520px;
-            background: var(--white);
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 48px 40px;
-        }
-
-        .register-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .project-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1.1px;
-            color: var(--muted);
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-
-        h1 {
-            font-family: "Playfair Display", serif;
-            font-size: 36px;
-            font-weight: 500;
-            line-height: 1.2;
-            letter-spacing: -.5px;
-            margin-bottom: 12px;
-        }
-
-        .register-description {
-            max-width: 440px;
-            margin: 0 auto;
-            color: var(--muted);
-            font-size: 15px;
-            line-height: 1.6;
-        }
-
-        .register-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .name-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 16px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .form-group label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--ink);
-        }
-
-        .required {
-            color: var(--red);
-            margin-left: 2px;
-        }
-
-        .form-group input[type="text"],
-        .form-group input[type="email"],
-        .form-group input[type="password"] {
-            height: 48px;
-            padding: 0 16px;
-            font-family: inherit;
-            font-size: 14px;
-            color: var(--ink);
-            background: var(--white);
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            transition: border-color .15s ease, box-shadow .15s ease;
-        }
-
-        .form-group input::placeholder {
-            color: var(--muted);
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--ink);
-            box-shadow: 0 0 0 3px rgba(37, 37, 37, 0.08);
-        }
-
-        .form-group input:disabled {
-            background: var(--soft);
-            color: var(--muted);
-        }
-
-        .password-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .password-field {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        .password-field input {
-            width: 100%;
-            padding-right: 52px;
-        }
-
-        .password-eye {
-            position: absolute;
-            right: 12px;
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 0;
-            background: none;
-            color: var(--muted);
-            cursor: pointer;
-            padding: 0;
-            transition: color .15s ease;
-        }
-
-        .password-eye:hover {
-            color: var(--ink);
-        }
-
-        .password-eye svg {
-            width: 20px;
-            height: 20px;
-        }
-
-        .eye-closed {
-            display: none;
-        }
-
-        .captcha-section {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .captcha-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .captcha-code {
-            min-width: 100px;
-            height: 48px;
-            background: var(--soft);
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: "DM Sans", sans-serif;
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 4px;
-            color: var(--ink);
-            user-select: none;
-        }
-
-        .captcha-row input {
-            flex: 1;
-            height: 48px;
-            padding: 0 16px;
-            font-family: inherit;
-            font-size: 14px;
-            color: var(--ink);
-            background: var(--white);
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            transition: border-color .15s ease, box-shadow .15s ease;
-        }
-
-        .captcha-row input:focus {
-            outline: none;
-            border-color: var(--ink);
-            box-shadow: 0 0 0 3px rgba(37, 37, 37, 0.08);
-        }
-
-        .captcha-help {
-            font-size: 12px;
-            color: var(--muted);
-            margin: 0;
-        }
-
-        .register-submit {
-            height: 48px;
-            padding: 0 24px;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            background: var(--ink);
-            color: var(--white);
-            border: 1px solid var(--ink);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background .15s ease, color .15s ease, border-color .15s ease;
-            margin-top: 8px;
-        }
-
-        .register-submit:hover {
-            background: var(--white);
-            color: var(--ink);
-        }
-
-        .register-submit:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(37, 37, 37, 0.15);
-        }
-
-        .register-footer {
-            margin-top: 32px;
-            padding-top: 24px;
-            border-top: 1px solid var(--line);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            text-align: center;
-        }
-
-        .register-footer p {
-            font-size: 14px;
-            color: var(--muted);
-            margin: 0;
-        }
-
-        .register-footer a {
-            color: var(--ink);
-            text-decoration: none;
-            font-weight: 500;
-            border-bottom: 1px solid var(--ink);
-            padding-bottom: 2px;
-            transition: color .15s ease, border-color .15s ease;
-        }
-
-        .register-footer a:hover {
-            color: var(--muted);
-            border-bottom-color: var(--muted);
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            color: var(--muted);
-            text-decoration: none;
-            padding: 4px 0;
-            border-bottom: 1px solid transparent;
-            transition: border-color .15s ease, color .15s ease;
-        }
-
-        .back-link:hover {
-            color: var(--ink);
-            border-bottom-color: var(--ink);
-        }
-
-        @media (max-width: 600px) {
-            .register-page {
-                padding: 24px 14px;
-            }
-
-            .register-container {
-                padding: 36px 24px;
-            }
-
-            h1 {
-                font-size: 30px;
-            }
-
-            .name-row {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-
-            .password-row {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-
-            .captcha-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .captcha-code {
-                width: 100%;
-            }
-        }
-    </style>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
 <body>
+
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="brand-mark">
+                EM
+            </div>
+
+            <div class="brand-name">
+                Exam Monitoring
+            </div>
+
+        </div>
+
+        <div class="top-right">
+
+            <span class="top-label">
+                Candidate Registration
+            </span>
+
+        </div>
+
+    </header>
+
 
     <main class="register-page">
 
         <div class="register-container">
 
-            <div class="register-header">
+            <div class="panel-intro">
 
                 <p class="project-label">CANDIDATE REGISTRATION</p>
 
                 <h1>Create Your Account</h1>
 
-                <p class="register-description">
+                <p>
                     Enter your details to register for the online examination.
                 </p>
 
@@ -369,9 +56,9 @@
 
             <form action="{{ url_for('register') }}"
                   method="POST"
-                  class="register-form">
+                  class="register-form form">
 
-                <div class="name-row">
+                <div class="name-row form-row form-row--3">
 
                     <div class="form-group">
 
@@ -438,7 +125,7 @@
 
                 </div>
 
-                <div class="password-row">
+                <div class="password-row form-row form-row--2">
 
                     <div class="form-group">
 
@@ -549,17 +236,17 @@
 
                 </div>
 
-                <button type="submit" class="register-submit">
+                <button type="submit" class="btn btn-primary btn-block register-submit">
                     Register Candidate
                 </button>
 
             </form>
 
-            <div class="register-footer">
+            <div class="panel-foot register-footer">
 
                 <p>
                     Already registered?
-                    <a href="{{ url_for('login_page') }}">Login here</a>
+                    <a href="{{ url_for('login_page') }}" class="link">Login here</a>
                 </p>
 
                 <a href="{{ url_for('exam_entry') }}" class="back-link">

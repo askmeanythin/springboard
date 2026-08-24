@@ -13,23 +13,52 @@
 
 <body>
 
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="brand-mark">
+                EM
+            </div>
+
+            <div class="brand-name">
+                Exam Monitoring
+            </div>
+
+        </div>
+
+        <div class="top-right">
+
+            <span class="top-label">
+                Candidate Portal
+            </span>
+
+        </div>
+
+    </header>
+
+
     <main class="welcome-page">
 
         <div class="welcome-container">
 
-            <p class="project-label">
-                EXAMINATION PORTAL
-            </p>
+            <div class="panel-intro">
 
-            <h1>
-                Welcome Back,
-                <span>{{ name }}</span>
-            </h1>
+                <p class="project-label">
+                    EXAMINATION PORTAL
+                </p>
 
-            <p class="welcome-description">
-                Your identity has been verified successfully.
-                You are now ready to continue to the examination process.
-            </p>
+                <h1>
+                    Welcome Back,
+                    <span class="welcome-name">{{ name }}</span>
+                </h1>
+
+                <p>
+                    Your identity has been verified successfully.
+                    You are now ready to continue to the examination process.
+                </p>
+
+            </div>
 
             <div class="welcome-info">
 
@@ -47,11 +76,29 @@
 
             </div>
 
+            <div class="section-label">
+                Before you start
+            </div>
+
+            <ul class="guide-list">
+
+                <li>Make sure your camera is connected and permitted.</li>
+
+                <li>Sit in a well-lit room with your face clearly visible.</li>
+
+                <li>Do not switch tabs or leave the exam window.</li>
+
+                <li>Your session is monitored and scored for integrity.</li>
+
+            </ul>
+
+            <hr class="divider">
+
             <form action="{{ url_for('start_exam') }}" method="POST">
 
                 <button
                     type="submit"
-                    class="start-test-btn">
+                    class="btn btn-primary btn-block start-test-btn">
 
                     Start Test
 

@@ -1,37 +1,237 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Dashboard</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
-<h2>Dashboard</h2>
+<header class="topbar">
 
-<h3>Welcome {{ name }}</h3>
+    <div class="brand">
 
-<br>
+        <div class="brand-mark">
+            EM
+        </div>
 
-<form action="/exam" method="GET">
-    <button type="submit">Start Exam</button>
-</form>
+        <div class="brand-name">
+            Exam Monitoring
+        </div>
 
-<br>
+    </div>
 
-<form action="/pause_exam" method="POST">
-    <button type="submit">Pause Exam</button>
-</form>
+    <div class="top-right">
 
-<br>
+        <span class="top-label">
+            Candidate Dashboard
+        </span>
 
-<form action="/resume_exam" method="POST">
-    <button type="submit">Resume Exam</button>
-</form>
+    </div>
 
-<br>
+</header>
 
-<form action="/end_exam" method="POST">
-    <button type="submit">End Exam</button>
-</form>
+
+<main class="page page--narrow">
+
+    <div class="page-heading">
+
+        <div class="heading-left">
+
+            <h1>Dashboard</h1>
+
+            <p>
+                Manage your examination session and monitoring status
+            </p>
+
+        </div>
+
+        <div class="page-meta">
+            Candidate Panel
+        </div>
+
+    </div>
+
+
+    <!-- WELCOME -->
+
+    <section class="dash-hero">
+
+        <div>
+
+            <div class="section-label">
+                Signed in as
+            </div>
+
+            <div class="dash-hero-name">
+                {{ name or session.get('candidate_name') or 'Candidate' }}
+            </div>
+
+            <p class="dash-hero-text">
+                Your camera feed and browser activity are monitored for the
+                duration of the examination. Use the actions below to control
+                your session.
+            </p>
+
+        </div>
+
+        <span class="status status-good">
+            <span class="status-dot"></span>
+            Verified
+        </span>
+
+    </section>
+
+
+    <!-- ACTIONS -->
+
+    <div class="section-title">
+
+        <h2>Examination Actions</h2>
+
+        <span class="count">4 available</span>
+
+    </div>
+
+    <section class="action-grid">
+
+
+        <!-- START -->
+
+        <div class="action-card">
+
+            <div class="action-card-head">
+
+                <h3>Start Exam</h3>
+
+                <span class="action-index">01</span>
+
+            </div>
+
+            <p>
+                Open the monitored examination window and begin your session.
+            </p>
+
+            <form action="/exam" method="GET">
+
+                <button type="submit" class="btn btn-primary btn-block">
+                    Start Exam
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- PAUSE -->
+
+        <div class="action-card">
+
+            <div class="action-card-head">
+
+                <h3>Pause Exam</h3>
+
+                <span class="action-index">02</span>
+
+            </div>
+
+            <p>
+                Temporarily suspend the active session. Monitoring is held
+                until you resume.
+            </p>
+
+            <form action="/pause_exam" method="POST">
+
+                <button type="submit" class="btn btn-secondary btn-block">
+                    Pause Exam
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- RESUME -->
+
+        <div class="action-card">
+
+            <div class="action-card-head">
+
+                <h3>Resume Exam</h3>
+
+                <span class="action-index">03</span>
+
+            </div>
+
+            <p>
+                Continue a paused session and restart monitoring from where
+                you stopped.
+            </p>
+
+            <form action="/resume_exam" method="POST">
+
+                <button type="submit" class="btn btn-secondary btn-block">
+                    Resume Exam
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- END -->
+
+        <div class="action-card">
+
+            <div class="action-card-head">
+
+                <h3>End Exam</h3>
+
+                <span class="action-index">04</span>
+
+            </div>
+
+            <p>
+                Close the session permanently and finalise your integrity
+                report.
+            </p>
+
+            <form action="/end_exam" method="POST">
+
+                <button type="submit" class="btn btn-danger btn-block">
+                    End Exam
+                </button>
+
+            </form>
+
+        </div>
+
+    </section>
+
+
+    <div class="alert alert-info" style="margin-top:32px;">
+
+        <div class="alert-mark">i</div>
+
+        <div>
+            <div class="alert-title">Session guidance</div>
+
+            <p class="alert-text">
+                Ending an examination is final. Once ended, the session is
+                closed and the integrity report is generated.
+            </p>
+        </div>
+
+    </div>
+
+</main>
 
 </body>
+
 </html>
